@@ -3,19 +3,19 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import MainLayout from "./layouts/MainLayout";
 
-/* Pages */
+
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import Home from "./pages/Home";
 import Upcoming from "./pages/Upcoming"; 
-import CalendarPage from "./pages/Calendar"; // <-- Aliased Import
+import CalendarPage from "./pages/Calendar";
 import Categories from "./pages/Categories";
 import Analysis from "./pages/Analysis";
 import Archived from "./pages/Archived";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
-/* 🔒 Protected Route Wrapper */
+
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
   return user ? children : <Navigate to="/login" replace />;
@@ -36,7 +36,7 @@ export default function App() {
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
             <Route path="/" element={<Home />} />
             <Route path="/upcoming" element={<Upcoming />} /> 
-            <Route path="/calendar" element={<CalendarPage />} /> {/* Using Aliased Name */}
+            <Route path="/calendar" element={<CalendarPage />} /> {/* Using CalendarPage component */}
             <Route path="/categories" element={<Categories />} />
             <Route path="/analysis" element={<Analysis />} />
             <Route path="/archived" element={<Archived />} />

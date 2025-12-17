@@ -81,7 +81,7 @@ const Upcoming = () => {
           >
               <p className="text-xl font-medium">All clear! No pending tasks in sight. 🎉</p>
           </motion.div>
-      )}
+      )}+
     </motion.div>
   );
 };
