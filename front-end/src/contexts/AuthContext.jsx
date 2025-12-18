@@ -1,4 +1,5 @@
-import React, { createContext, useState } from "react";
+import React, { createContext, useEffect, useState } from "react";
+import api from "../services/api";
 
 export const AuthContext = createContext(null);
 
@@ -8,32 +9,74 @@ export const AuthProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // DUMMY IMPLEMENTATION - Replace with API calls
-  const login = (email, password) => {
-    // API Call: POST /login
-    const userData = { email, name: email.split("@")[0] };
-    setUser(userData);
-    localStorage.setItem("user", JSON.stringify(userData));
-    return true;
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    setLoading(false);
+  }, []);
+
+  const login = async (email, password) => {
+    try {
+      const res = await api.post("/auth/login", { email, password });
+
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+      setUser(res.data.user);
+
+      return { success: true };
+    } catch (err) {
+      return {
+        success: false,
+        message: err.response?.data?.msg || "Login failed",
+      };
+    }
   };
 
-  const signup = (name, email, password) => {
-    // API Call: POST /signup
-    const userData = { name, email };
-    setUser(userData);
-    localStorage.setItem("user", JSON.stringify(userData));
-    return true;
+  const signup = async (name, email, password) => {
+    try {
+      const res = await api.post("/auth/signup", {
+        name,
+        email,
+        password,
+      });
+
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+      setUser(res.data.user);
+
+      return { success: true };
+    } catch (err) {
+      return {
+        success: false,
+        message: err.response?.data?.msg || "Signup failed",
+      };
+    }
   };
 
   const logout = () => {
-    // API Call: POST /logout
-    setUser(null);
+    localStorage.removeItem("token");
     localStorage.removeItem("user");
+    setUser(null);
+    window.location.href = "/login";
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, setUser }}>
-      {children}
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        signup,
+        logout,
+        setUser,
+        isAuthenticated: !!user,
+      }}
+    >
+      {!loading && children}
     </AuthContext.Provider>
   );
 };
