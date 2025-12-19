@@ -1,10 +1,4 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback
-} from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import api from "../services/api.js";
 
 const TodoContext = createContext(null);
@@ -18,7 +12,6 @@ export const TodoProvider = ({ children }) => {
       const res = await api.get("/todos");
       setTodos(res.data);
     } catch (err) {
-    
       if (err.response?.status !== 401) {
         console.error("Error fetching tasks:", err);
       }
@@ -27,49 +20,26 @@ export const TodoProvider = ({ children }) => {
     }
   }, []);
 
-
   useEffect(() => {
     const handleAuthChange = () => {
       const token = localStorage.getItem("token");
-
       if (token) {
         setLoading(true);
         fetchTodos();
       } else {
-      
         setTodos([]);
         setLoading(false);
       }
     };
-
-
     handleAuthChange();
-
-  
     window.addEventListener("storage", handleAuthChange);
-
-    return () => {
-      window.removeEventListener("storage", handleAuthChange);
-    };
+    return () => window.removeEventListener("storage", handleAuthChange);
   }, [fetchTodos]);
 
-  const addTodo = async (
-    text,
-    category = "general",
-    dueDate = "",
-    priority = "Medium",
-    description = ""
-  ) => {
+  const addTodo = async (text, category = "general", dueDate = "", priority = "Medium", description = "") => {
     if (!text.trim()) return;
-
     try {
-      const res = await api.post("/todos", {
-        text,
-        category,
-        dueDate,
-        priority,
-        description
-      });
+      const res = await api.post("/todos", { text, category, dueDate, priority, description });
       setTodos((prev) => [res.data, ...prev]);
     } catch (err) {
       console.error("Error adding task:", err);
@@ -79,9 +49,7 @@ export const TodoProvider = ({ children }) => {
   const updateTodo = async (id, newText) => {
     try {
       const res = await api.put(`/todos/${id}`, { text: newText });
-      setTodos((prev) =>
-        prev.map((todo) => (todo._id === id ? res.data : todo))
-      );
+      setTodos((prev) => prev.map((todo) => (todo._id === id ? res.data : todo)));
     } catch (err) {
       console.error("Error updating text:", err);
     }
@@ -90,9 +58,7 @@ export const TodoProvider = ({ children }) => {
   const updateTodoField = async (id, field, value) => {
     try {
       const res = await api.put(`/todos/${id}`, { [field]: value });
-      setTodos((prev) =>
-        prev.map((todo) => (todo._id === id ? res.data : todo))
-      );
+      setTodos((prev) => prev.map((todo) => (todo._id === id ? res.data : todo)));
     } catch (err) {
       console.error("Error updating field:", err);
     }
@@ -101,14 +67,14 @@ export const TodoProvider = ({ children }) => {
   const toggleTodo = async (id) => {
     const todoToToggle = todos.find((t) => t._id === id);
     if (!todoToToggle) return;
-
     try {
-      const res = await api.put(`/todos/${id}`, {
-        completed: !todoToToggle.completed
+      const isCompleting = !todoToToggle.completed;
+      const res = await api.put(`/todos/${id}`, { 
+        completed: isCompleting,
+        // ADDED: Timestamp for heatmap
+        completedAt: isCompleting ? new Date().toISOString() : null 
       });
-      setTodos((prev) =>
-        prev.map((todo) => (todo._id === id ? res.data : todo))
-      );
+      setTodos((prev) => prev.map((todo) => (todo._id === id ? res.data : todo)));
     } catch (err) {
       console.error("Error toggling status:", err);
     }
@@ -125,13 +91,13 @@ export const TodoProvider = ({ children }) => {
 
   const archiveTodo = async (id) => {
     try {
-      const res = await api.put(`/todos/${id}`, {
-        archived: true,
-        completed: true
+      const res = await api.put(`/todos/${id}`, { 
+        archived: true, 
+        completed: true,
+        // ADDED: Timestamp for heatmap
+        completedAt: new Date().toISOString() 
       });
-      setTodos((prev) =>
-        prev.map((todo) => (todo._id === id ? res.data : todo))
-      );
+      setTodos((prev) => prev.map((todo) => (todo._id === id ? res.data : todo)));
     } catch (err) {
       console.error("Error archiving task:", err);
     }
@@ -139,33 +105,19 @@ export const TodoProvider = ({ children }) => {
 
   const restoreTodo = async (id) => {
     try {
-      const res = await api.put(`/todos/${id}`, {
-        archived: false,
-        completed: false
+      const res = await api.put(`/todos/${id}`, { 
+        archived: false, 
+        completed: false,
+        completedAt: null 
       });
-      setTodos((prev) =>
-        prev.map((todo) => (todo._id === id ? res.data : todo))
-      );
+      setTodos((prev) => prev.map((todo) => (todo._id === id ? res.data : todo)));
     } catch (err) {
       console.error("Error restoring task:", err);
     }
   };
 
   return (
-    <TodoContext.Provider
-      value={{
-        todos,
-        loading,
-        addTodo,
-        toggleTodo,
-        deleteTodo,
-        updateTodo,
-        updateTodoField,
-        archiveTodo,
-        restoreTodo,
-        fetchTodos
-      }}
-    >
+    <TodoContext.Provider value={{ todos, loading, addTodo, toggleTodo, deleteTodo, updateTodo, updateTodoField, archiveTodo, restoreTodo, fetchTodos }}>
       {children}
     </TodoContext.Provider>
   );
@@ -173,8 +125,6 @@ export const TodoProvider = ({ children }) => {
 
 export const useTodos = () => {
   const context = useContext(TodoContext);
-  if (!context) {
-    throw new Error("useTodos must be used within TodoProvider");
-  }
+  if (!context) throw new Error("useTodos must be used within TodoProvider");
   return context;
 };
