@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useTodos } from '../hooks/useTodos';
 import moment from 'moment';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X, ListTodo } from 'lucide-react';
 
 const generateMonthDays = (date) => {
     const startOfMonth = moment(date).startOf('month');
@@ -21,13 +21,12 @@ const generateMonthDays = (date) => {
 
 export default function Calendar() {
     const { todos } = useTodos();
-    const [currentMonth, setCurrentMonth] = useState(moment()); 
+    const [currentMonth, setCurrentMonth] = useState(moment());
     const [selectedDate, setSelectedDate] = useState(null);
 
     const allDays = useMemo(() => generateMonthDays(currentMonth), [currentMonth]);
-    
+
     const tasksByDate = useMemo(() => {
-        // Filter: Hide completed tasks. Archive allowed if not completed.
         return todos.filter(t => t.dueDate && !t.completed).reduce((acc, todo) => {
             const dateKey = moment(todo.dueDate, 'YYYY-MM-DD').format('YYYY-MM-DD');
             if (!acc[dateKey]) {
@@ -35,17 +34,16 @@ export default function Calendar() {
             }
             acc[dateKey].push(todo);
 
-            // Sort: High > Medium > Low
             acc[dateKey].sort((a, b) => {
                 const priorityOrder = { 'High': 1, 'Medium': 2, 'Low': 3 };
                 return (priorityOrder[a.priority] || 4) - (priorityOrder[b.priority] || 4);
             });
 
             return acc;
-        } , {});
+        }, {});
     }, [todos]);
-    
-    const detailTasks = selectedDate 
+
+    const detailTasks = selectedDate
         ? tasksByDate[selectedDate.format('YYYY-MM-DD')] || []
         : [];
 
@@ -55,7 +53,7 @@ export default function Calendar() {
     };
 
     const goToNextMonth = () => {
-        setCurrentMonth(prevMonth).add(1, 'month');
+        setCurrentMonth(prevMonth => moment(prevMonth).add(1, 'month'));
         setSelectedDate(null);
     };
 
@@ -70,126 +68,163 @@ export default function Calendar() {
     const daysOfWeek = moment.weekdaysShort();
 
     return (
-        <div className="w-full mx-auto space-y-6 p-4 sm:p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700">
-            
-            <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 flex items-center border-b pb-3">
-                <CalendarIcon className="w-8 h-8 mr-3 text-indigo-600" />
-                Interactive Calendar
-            </h1>
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6 transition-colors duration-300">
+            {/* Main Layout Container: Changes from Col to Row when wide enough */}
+            <div className={`mx-auto flex flex-col lg:flex-row gap-6 transition-all duration-500 ease-in-out ${selectedDate ? 'max-w-[1600px]' : 'max-w-6xl'}`}>
+                
+                {/* CALENDAR SECTION */}
+                <div className="flex-grow bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div className="p-5 md:p-8">
+                        {/* Header */}
+                        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 dark:border-gray-700 pb-6 mb-6">
+                            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-100 flex items-center">
+                                <CalendarIcon className="w-7 h-7 mr-3 text-indigo-600" />
+                                Interactive Calendar
+                            </h1>
 
-            {/* Navigation */}
-            <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-inner">
-                <button onClick={goToPreviousMonth} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition">
-                    <ChevronLeft className="w-6 h-6 text-gray-700 dark:text-gray-200" />
-                </button>
-                <h2 className="text-xl font-semibold text-indigo-600 dark:text-indigo-400">
-                    {currentMonth.format('MMMM YYYY')}
-                </h2>
-                <button onClick={goToNextMonth} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition">
-                    <ChevronRight className="w-6 h-6 text-gray-700 dark:text-gray-200" />
-                </button>
-            </div>
+                            {/* Navigation */}
+                            <div className="flex items-center space-x-4 bg-gray-100 dark:bg-gray-700/50 p-1.5 rounded-2xl">
+                                <button onClick={goToPreviousMonth} className="p-2 rounded-xl hover:bg-white dark:hover:bg-gray-600 hover:shadow-sm transition-all active:scale-95">
+                                    <ChevronLeft className="w-5 h-5 text-gray-700 dark:text-gray-200" />
+                                </button>
+                                <h2 className="text-base font-bold text-gray-800 dark:text-gray-200 min-w-[140px] text-center">
+                                    {currentMonth.format('MMMM YYYY')}
+                                </h2>
+                                <button onClick={goToNextMonth} className="p-2 rounded-xl hover:bg-white dark:hover:bg-gray-600 hover:shadow-sm transition-all active:scale-95">
+                                    <ChevronRight className="w-5 h-5 text-gray-700 dark:text-gray-200" />
+                                </button>
+                            </div>
+                        </header>
 
-            {/* Grid */}
-            <div className="grid grid-cols-7 gap-1">
-                {daysOfWeek.map(day => (
-                    <div key={day} className="text-center font-bold text-sm py-2 text-indigo-600 dark:text-indigo-400 border-b border-indigo-200 dark:border-indigo-800 uppercase tracking-tighter">
-                        {day}
-                    </div>
-                ))}
+                        {/* Calendar Grid */}
+                        <div className="grid grid-cols-7 gap-2">
+                            {daysOfWeek.map(day => (
+                                <div key={day} className="text-center font-bold text-[10px] py-2 text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                                    {day}
+                                </div>
+                            ))}
 
-                {allDays.map((day, index) => {
-                    const dateKey = day.format('YYYY-MM-DD');
-                    const isToday = day.isSame(moment(), 'day');
-                    const isOtherMonth = !day.isSame(currentMonth, 'month');
-                    const isSelected = selectedDate && selectedDate.isSame(day, 'day');
-                    const tasks = tasksByDate[dateKey] || [];
-                    const taskCount = tasks.length;
-                    
-                    // Priority Logic
-                    const hasHigh = tasks.some(t => t.priority === 'High');
-                    const hasMedium = tasks.some(t => t.priority === 'Medium');
+                            {allDays.map((day, index) => {
+                                const dateKey = day.format('YYYY-MM-DD');
+                                const isToday = day.isSame(moment(), 'day');
+                                const isOtherMonth = !day.isSame(currentMonth, 'month');
+                                const isSelected = selectedDate && selectedDate.isSame(day, 'day');
+                                const tasks = tasksByDate[dateKey] || [];
+                                const taskCount = tasks.length;
 
-                    // Determine Badge Color
-                    let badgeColor = 'bg-emerald-500'; // Default Green (Low)
-                    if (hasHigh) badgeColor = 'bg-red-500';
-                    else if (hasMedium) badgeColor = 'bg-orange-500';
-                    
-                    let cellClasses = 'min-h-[100px] p-2 flex flex-col items-center justify-start rounded-lg transition duration-200 cursor-pointer text-sm relative border';
+                                const hasHigh = tasks.some(t => t.priority === 'High');
+                                const hasMedium = tasks.some(t => t.priority === 'Medium');
 
-                    if (isOtherMonth) {
-                        cellClasses += ' text-gray-300 dark:text-gray-600 bg-gray-50/50 dark:bg-gray-900/50 pointer-events-none opacity-40';
-                    } else if (isSelected) {
-                        cellClasses += ' bg-indigo-600 text-white font-bold shadow-lg ring-2 ring-indigo-400 z-10';
-                    } else if (isToday) {
-                        cellClasses += ' bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 font-semibold border-2 border-indigo-500';
-                    } else {
-                        cellClasses += ' text-gray-800 dark:text-gray-200 hover:bg-indigo-50 dark:hover:bg-gray-700 border-gray-100 dark:border-gray-700';
-                    }
+                                let badgeColor = 'bg-emerald-500';
+                                if (hasHigh) badgeColor = 'bg-red-500';
+                                else if (hasMedium) badgeColor = 'bg-orange-500';
 
-                    return (
-                        <div key={index} className={cellClasses} onClick={() => handleDayClick(day)}>
-                            <div className="flex justify-between w-full mb-1 relative">
-                                {hasHigh && !isOtherMonth && (
-                                    <div className="absolute top-0 left-0">
-                                        <span className="relative flex h-2 w-2">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600 shadow-sm shadow-red-500/50"></span>
-                                        </span>
+                                // Reduced min-height from 120px to 90px to help it fit the screen
+                                let cellClasses = 'min-h-[90px] md:min-h-[105px] p-2 md:p-3 flex flex-col rounded-2xl transition-all duration-300 cursor-pointer relative border-2 ';
+
+                                if (isOtherMonth) {
+                                    cellClasses += 'text-gray-300 dark:text-gray-700 bg-transparent border-transparent opacity-20 pointer-events-none';
+                                } else if (isSelected) {
+                                    cellClasses += 'bg-indigo-600 border-indigo-600 text-white shadow-lg z-10 scale-[1.02]';
+                                } else if (isToday) {
+                                    cellClasses += 'bg-white dark:bg-gray-800 border-indigo-500 text-indigo-600 shadow-sm';
+                                } else {
+                                    cellClasses += 'bg-gray-50/50 dark:bg-gray-800/50 border-transparent text-gray-700 dark:text-gray-300 hover:border-indigo-200 hover:bg-white dark:hover:bg-gray-700';
+                                }
+
+                                return (
+                                    <div key={index} className={cellClasses} onClick={() => handleDayClick(day)}>
+                                        <div className="flex justify-between items-start">
+                                            <span className="text-sm md:text-base font-bold">
+                                                {day.format('D')}
+                                            </span>
+                                            {hasHigh && !isOtherMonth && !isSelected && (
+                                                <span className="flex h-2 w-2">
+                                                    <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-red-400 opacity-75"></span>
+                                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <div className="mt-auto flex justify-end">
+                                            {taskCount > 0 && !isOtherMonth && (
+                                                <div className={`text-[10px] px-2 py-0.5 rounded-full font-bold text-white shadow-sm ${isSelected ? 'bg-white/20' : badgeColor}`}>
+                                                    {taskCount} {taskCount === 1 ? 'Task' : 'Tasks'}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                )}
-                                <span className={`font-bold ml-auto ${isSelected ? 'text-white' : 'text-gray-400'}`}>
-                                    {day.format('D')}
-                                </span>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+
+                {/* SIDE TASK PANEL: Only shows when a date is selected */}
+                {selectedDate && (
+                    <aside className="w-full lg:w-[400px] shrink-0 animate-in fade-in slide-in-from-right-8 duration-500">
+                        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-indigo-100 dark:border-gray-700 h-full flex flex-col max-h-[calc(100vh-100px)] lg:sticky lg:top-6">
+                            {/* Panel Header */}
+                            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-indigo-50/30 dark:bg-indigo-900/10">
+                                <div>
+                                    <h3 className="text-xl font-extrabold text-gray-900 dark:text-white">
+                                        {selectedDate.format('MMM D, YYYY')}
+                                    </h3>
+                                    <p className="text-indigo-600 dark:text-indigo-400 text-xs font-semibold uppercase tracking-wider">
+                                        {selectedDate.format('dddd')} Overview
+                                    </p>
+                                </div>
+                                <button 
+                                    onClick={() => setSelectedDate(null)} 
+                                    className="p-2 bg-white dark:bg-gray-700 rounded-full shadow-sm hover:text-red-500 transition-all hover:rotate-90"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
                             </div>
 
-                            {/* Badge with Dynamic Priority Color */}
-                            <div className="w-full mt-auto flex justify-center pb-2">
-                                {taskCount > 0 && !isOtherMonth && (
-                                    <div className={`text-[11px] w-5 h-5 rounded-full flex items-center justify-center font-black text-white shadow-md transition-all ${badgeColor}`}>
-                                        {taskCount}
+                            {/* Task List Content */}
+                            <div className="flex-grow overflow-y-auto p-6">
+                                {detailTasks.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                                        <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-full mb-4">
+                                            <ListTodo className="w-8 h-8 text-gray-400" />
+                                        </div>
+                                        <p className="text-gray-400 dark:text-gray-500 italic">No tasks for this day.</p>
                                     </div>
+                                ) : (
+                                    <ul className="space-y-4">
+                                        {detailTasks.map((task, index) => (
+                                            <li key={index} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all group">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <span className="font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 transition-colors">
+                                                        {task.text}
+                                                    </span>
+                                                    <span className={`text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-wider 
+                                                        ${task.priority === 'High' ? 'bg-red-100 text-red-600' : 
+                                                          task.priority === 'Medium' ? 'bg-orange-100 text-orange-600' : 
+                                                          'bg-emerald-100 text-emerald-600'}`}>
+                                                        {task.priority}
+                                                    </span>
+                                                </div>
+                                                {task.description && (
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                                                        {task.description}
+                                                    </p>
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ul>
                                 )}
+                            </div>
+
+                            {/* Panel Footer (Optional) */}
+                            <div className="p-4 bg-gray-50/50 dark:bg-gray-900/30 text-center border-t border-gray-100 dark:border-gray-700">
+                                <p className="text-[10px] text-gray-400 font-medium">TaskMaster • {detailTasks.length} items</p>
                             </div>
                         </div>
-                    );
-                })}
+                    </aside>
+                )}
             </div>
-
-            {/* Details Section */}
-            {selectedDate && (
-                <div className="mt-6 p-5 border-t-2 border-indigo-200 dark:border-indigo-700 bg-gray-50 dark:bg-gray-900/40 rounded-xl shadow-inner">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
-                            Tasks for {selectedDate.format('dddd, MMM D, YYYY')}
-                        </h3>
-                        <button onClick={() => setSelectedDate(null)} className="text-gray-400 hover:text-red-500 p-1 rounded-full transition">
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    {detailTasks.length === 0 ? (
-                        <p className="text-gray-500 dark:text-gray-400 italic">No pending tasks for this date.</p>
-                    ) : (
-                        <ul className="space-y-3">
-                            {detailTasks.map((task, index) => (
-                                <li key={index} className={`p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm flex flex-col border-l-4 ${task.priority === 'High' ? 'border-red-500' : task.priority === 'Medium' ? 'border-orange-500' : 'border-emerald-500'}`}>
-                                    <div className="flex justify-between items-center">
-                                        <span className="font-bold text-gray-900 dark:text-white tracking-tight">{task.text}</span>
-                                        <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest 
-                                            ${task.priority === 'High' ? 'bg-red-100 text-red-800' : 
-                                              task.priority === 'Medium' ? 'bg-orange-100 text-orange-800' : 
-                                              'bg-emerald-100 text-emerald-800'}`}>
-                                            {task.priority}
-                                        </span>
-                                    </div>
-                                    {task.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{task.description}</p>}
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
-            )}
         </div>
     );
 }
