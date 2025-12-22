@@ -29,7 +29,6 @@ export const TodoProvider = ({ children }) => {
   useEffect(() => {
     const handleAuthChange = () => {
       const token = localStorage.getItem("token");
-
       if (token) {
         setLoading(true);
         fetchTodos();
@@ -38,30 +37,15 @@ export const TodoProvider = ({ children }) => {
         setLoading(false);
       }
     };
-
     handleAuthChange();
     window.addEventListener("storage", handleAuthChange);
-
     return () => window.removeEventListener("storage", handleAuthChange);
   }, [fetchTodos]);
 
-  const addTodo = async (
-    text,
-    category = "general",
-    dueDate = "",
-    priority = "Medium",
-    description = ""
-  ) => {
+  const addTodo = async (text, category = "general", dueDate = "", priority = "Medium", description = "") => {
     if (!text.trim()) return;
-
     try {
-      const res = await api.post("/todos", {
-        text,
-        category,
-        dueDate,
-        priority,
-        description,
-      });
+      const res = await api.post("/todos", { text, category, dueDate, priority, description });
       setTodos((prev) => [res.data, ...prev]);
     } catch (err) {
       console.error("Error adding task:", err);
@@ -71,9 +55,7 @@ export const TodoProvider = ({ children }) => {
   const updateTodo = async (id, newText) => {
     try {
       const res = await api.put(`/todos/${id}`, { text: newText });
-      setTodos((prev) =>
-        prev.map((t) => (t._id === id ? res.data : t))
-      );
+      setTodos((prev) => prev.map((t) => (t._id === id ? res.data : t)));
     } catch (err) {
       console.error("Error updating task:", err);
     }
@@ -82,9 +64,7 @@ export const TodoProvider = ({ children }) => {
   const updateTodoField = async (id, field, value) => {
     try {
       const res = await api.put(`/todos/${id}`, { [field]: value });
-      setTodos((prev) =>
-        prev.map((t) => (t._id === id ? res.data : t))
-      );
+      setTodos((prev) => prev.map((t) => (t._id === id ? res.data : t)));
     } catch (err) {
       console.error("Error updating field:", err);
     }
@@ -93,14 +73,14 @@ export const TodoProvider = ({ children }) => {
   const toggleTodo = async (id) => {
     const todo = todos.find((t) => t._id === id);
     if (!todo) return;
-
     try {
+      const isCompleting = !todo.completed;
       const res = await api.put(`/todos/${id}`, {
-        completed: !todo.completed,
+        completed: isCompleting,
+        // NEW: Track exactly when it was completed for the heatmap
+        completedAt: isCompleting ? new Date().toISOString() : null 
       });
-      setTodos((prev) =>
-        prev.map((t) => (t._id === id ? res.data : t))
-      );
+      setTodos((prev) => prev.map((t) => (t._id === id ? res.data : t)));
     } catch (err) {
       console.error("Error toggling todo:", err);
     }
@@ -120,10 +100,10 @@ export const TodoProvider = ({ children }) => {
       const res = await api.put(`/todos/${id}`, {
         archived: true,
         completed: true,
+        // NEW: Archiving counts as completion for history/heatmap
+        completedAt: new Date().toISOString() 
       });
-      setTodos((prev) =>
-        prev.map((t) => (t._id === id ? res.data : t))
-      );
+      setTodos((prev) => prev.map((t) => (t._id === id ? res.data : t)));
     } catch (err) {
       console.error("Error archiving todo:", err);
     }
@@ -134,10 +114,9 @@ export const TodoProvider = ({ children }) => {
       const res = await api.put(`/todos/${id}`, {
         archived: false,
         completed: false,
+        completedAt: null 
       });
-      setTodos((prev) =>
-        prev.map((t) => (t._id === id ? res.data : t))
-      );
+      setTodos((prev) => prev.map((t) => (t._id === id ? res.data : t)));
     } catch (err) {
       console.error("Error restoring todo:", err);
     }
@@ -165,8 +144,6 @@ export const TodoProvider = ({ children }) => {
 
 export const useTodos = () => {
   const context = useContext(TodoContext);
-  if (!context) {
-    throw new Error("useTodos must be used within TodoProvider");
-  }
+  if (!context) throw new Error("useTodos must be used within TodoProvider");
   return context;
 };
