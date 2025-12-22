@@ -9,10 +9,15 @@ const TaskHeatmap = ({ todos }) => {
   const completedTasks = todos.filter(t => t.completed === true);
 
   const dataMap = completedTasks.reduce((acc, todo) => {
-    // Priority: completedAt > updatedAt > dueDate
-    const rawDate = todo.completedAt || todo.updatedAt || todo.dueDate;
-    const date = moment(rawDate).format('YYYY-MM-DD');
-    acc[date] = (acc[date] || 0) + 1;
+    // FALLBACK: Use completedAt first, then updatedAt, then createdAt
+    const rawDate = todo.completedAt || todo.updatedAt || todo.createdAt;
+    
+    if (rawDate) {
+      const date = moment(rawDate).format('YYYY-MM-DD');
+      if (date !== 'Invalid date') {
+        acc[date] = (acc[date] || 0) + 1;
+      }
+    }
     return acc;
   }, {});
 
@@ -23,7 +28,11 @@ const TaskHeatmap = ({ todos }) => {
 
   const today = new Date();
   const lastYear = moment().subtract(1, 'year').toDate();
-  const totalCompletedLastYear = values.reduce((a, b) => a + b.count, 0);
+  
+  // Only count tasks that are actually in the visual range of the heatmap
+  const totalCompletedLastYear = values.reduce((acc, val) => {
+    return moment(val.date).isAfter(lastYear) ? acc + val.count : acc;
+  }, 0);
 
   return (
     <div className="p-8 bg-white dark:bg-[#0d1117] rounded-3xl shadow-sm border border-gray-100 dark:border-[#30363d] transition-all">
@@ -56,10 +65,8 @@ const TaskHeatmap = ({ todos }) => {
           gutterSize={3}
           classForValue={(value) => {
             if (!value || value.count === 0) return 'color-empty';
-            if (value.count === 1) return 'color-scale-1';
-            if (value.count === 2) return 'color-scale-2';
-            if (value.count === 3) return 'color-scale-3';
-            return 'color-scale-4';
+            if (value.count >= 4) return 'color-scale-4';
+            return `color-scale-${value.count}`;
           }}
           tooltipDataAttrs={(value) => ({
             'data-tooltip-id': 'heatmap-tooltip',
@@ -84,16 +91,8 @@ const TaskHeatmap = ({ todos }) => {
         .dark .react-calendar-heatmap .color-scale-3 { fill: #26a641; }
         .dark .react-calendar-heatmap .color-scale-4 { fill: #39d353; }
 
-        .react-calendar-heatmap rect {
-          rx: 2px;
-          ry: 2px;
-          transition: all 0.2s ease;
-        }
-
-        .react-calendar-heatmap rect:hover {
-          stroke: #6366f1;
-          stroke-width: 1px;
-        }
+        .react-calendar-heatmap rect { rx: 2px; ry: 2px; transition: all 0.2s ease; }
+        .react-calendar-heatmap rect:hover { stroke: #6366f1; stroke-width: 1px; }
       `}</style>
     </div>
   );
