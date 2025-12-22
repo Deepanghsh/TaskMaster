@@ -16,28 +16,48 @@ const AnalyticsChart = () => {
   }));
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Tasks by Category</h3>
-      <div className="space-y-4">
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-2">
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 px-2">
+        Tasks by Category
+      </h3>
+      
+      {/* Grid Container: 1 col on mobile, 3 cols on desktop */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {categoryStats.map(stat => (
-          <div key={stat.name}>
-            <div className="flex justify-between items-center mb-2">
+          <div 
+            key={stat.name} 
+            className="p-4 rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 hover:shadow-md transition-shadow"
+          >
+            <div className="flex justify-between items-center mb-3">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: stat.color }} />
-                <span className="font-medium text-gray-900 dark:text-gray-100 capitalize">{stat.name}</span>
+                <div 
+                  className="w-3 h-3 rounded-full shadow-sm" 
+                  style={{ backgroundColor: stat.color }} 
+                />
+                <span className="font-semibold text-gray-800 dark:text-gray-100 capitalize">
+                  {stat.name}
+                </span>
               </div>
-              <span className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
                 {stat.completed}/{stat.count}
               </span>
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
               <div
-                className="h-2 rounded-full transition-all duration-500"
+                className="h-2 rounded-full transition-all duration-700 ease-out"
                 style={{
                   width: `${stat.count > 0 ? (stat.completed / stat.count) * 100 : 0}%`,
-                  backgroundColor: stat.color
+                  backgroundColor: stat.color,
+                  boxShadow: `0 0 8px ${stat.color}40` // Subtle glow effect
                 }}
               />
+            </div>
+            
+            {/* Percentage Label */}
+            <div className="mt-2 text-[10px] uppercase tracking-wider text-gray-400 font-bold">
+              {stat.count > 0 ? Math.round((stat.completed / stat.count) * 100) : 0}% Done
             </div>
           </div>
         ))}
