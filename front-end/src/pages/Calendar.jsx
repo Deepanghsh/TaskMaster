@@ -68,12 +68,12 @@ export default function Calendar() {
     const daysOfWeek = moment.weekdaysShort();
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6 transition-colors duration-300">
-            {/* Main Layout Container: Changes from Col to Row when wide enough */}
+        // Adjusted main background to be darker (gray-100 / gray-950) so white cards pop
+        <div className="min-h-screen bg-gray-100 dark:bg-gray-950 p-4 md:p-6 transition-colors duration-300">
             <div className={`mx-auto flex flex-col lg:flex-row gap-6 transition-all duration-500 ease-in-out ${selectedDate ? 'max-w-[1600px]' : 'max-w-6xl'}`}>
                 
                 {/* CALENDAR SECTION */}
-                <div className="flex-grow bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="flex-grow bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
                     <div className="p-5 md:p-8">
                         {/* Header */}
                         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 dark:border-gray-700 pb-6 mb-6">
@@ -83,21 +83,21 @@ export default function Calendar() {
                             </h1>
 
                             {/* Navigation */}
-                            <div className="flex items-center space-x-4 bg-gray-100 dark:bg-gray-700/50 p-1.5 rounded-2xl">
-                                <button onClick={goToPreviousMonth} className="p-2 rounded-xl hover:bg-white dark:hover:bg-gray-600 hover:shadow-sm transition-all active:scale-95">
+                            <div className="flex items-center space-x-4 bg-gray-200/50 dark:bg-gray-800 p-1.5 rounded-2xl">
+                                <button onClick={goToPreviousMonth} className="p-2 rounded-xl hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm transition-all active:scale-95">
                                     <ChevronLeft className="w-5 h-5 text-gray-700 dark:text-gray-200" />
                                 </button>
                                 <h2 className="text-base font-bold text-gray-800 dark:text-gray-200 min-w-[140px] text-center">
                                     {currentMonth.format('MMMM YYYY')}
                                 </h2>
-                                <button onClick={goToNextMonth} className="p-2 rounded-xl hover:bg-white dark:hover:bg-gray-600 hover:shadow-sm transition-all active:scale-95">
+                                <button onClick={goToNextMonth} className="p-2 rounded-xl hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm transition-all active:scale-95">
                                     <ChevronRight className="w-5 h-5 text-gray-700 dark:text-gray-200" />
                                 </button>
                             </div>
                         </header>
 
                         {/* Calendar Grid */}
-                        <div className="grid grid-cols-7 gap-2">
+                        <div className="grid grid-cols-7 gap-3">
                             {daysOfWeek.map(day => (
                                 <div key={day} className="text-center font-bold text-[10px] py-2 text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                                     {day}
@@ -119,23 +119,25 @@ export default function Calendar() {
                                 if (hasHigh) badgeColor = 'bg-red-500';
                                 else if (hasMedium) badgeColor = 'bg-orange-500';
 
-                                // Reduced min-height from 120px to 90px to help it fit the screen
-                                let cellClasses = 'min-h-[90px] md:min-h-[105px] p-2 md:p-3 flex flex-col rounded-2xl transition-all duration-300 cursor-pointer relative border-2 ';
+                                // Define Classes for separation
+                                let cellClasses = 'min-h-[90px] md:min-h-[105px] p-2 md:p-3 flex flex-col rounded-2xl transition-all duration-300 cursor-pointer relative border ';
 
                                 if (isOtherMonth) {
-                                    cellClasses += 'text-gray-300 dark:text-gray-700 bg-transparent border-transparent opacity-20 pointer-events-none';
+                                    cellClasses += 'text-gray-300 dark:text-gray-700 bg-transparent border-transparent opacity-10 pointer-events-none';
                                 } else if (isSelected) {
                                     cellClasses += 'bg-indigo-600 border-indigo-600 text-white shadow-lg z-10 scale-[1.02]';
                                 } else if (isToday) {
-                                    cellClasses += 'bg-white dark:bg-gray-800 border-indigo-500 text-indigo-600 shadow-sm';
+                                    // High contrast for Today
+                                    cellClasses += 'bg-white dark:bg-gray-800 border-indigo-500 text-indigo-600 shadow-md ring-1 ring-indigo-500/20';
                                 } else {
-                                    cellClasses += 'bg-gray-50/50 dark:bg-gray-800/50 border-transparent text-gray-700 dark:text-gray-300 hover:border-indigo-200 hover:bg-white dark:hover:bg-gray-700';
+                                    // High contrast for regular days: Pure white on Gray bg
+                                    cellClasses += 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-300 shadow-sm hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-500 hover:-translate-y-0.5';
                                 }
 
                                 return (
                                     <div key={index} className={cellClasses} onClick={() => handleDayClick(day)}>
                                         <div className="flex justify-between items-start">
-                                            <span className="text-sm md:text-base font-bold">
+                                            <span className={`text-sm md:text-base font-bold ${isSelected ? 'text-white' : 'text-inherit'}`}>
                                                 {day.format('D')}
                                             </span>
                                             {hasHigh && !isOtherMonth && !isSelected && (
@@ -160,12 +162,11 @@ export default function Calendar() {
                     </div>
                 </div>
 
-                {/* SIDE TASK PANEL: Only shows when a date is selected */}
+                {/* SIDE TASK PANEL */}
                 {selectedDate && (
                     <aside className="w-full lg:w-[400px] shrink-0 animate-in fade-in slide-in-from-right-8 duration-500">
-                        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-indigo-100 dark:border-gray-700 h-full flex flex-col max-h-[calc(100vh-100px)] lg:sticky lg:top-6">
-                            {/* Panel Header */}
-                            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-indigo-50/30 dark:bg-indigo-900/10">
+                        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-800 h-full flex flex-col max-h-[calc(100vh-100px)] lg:sticky lg:top-6">
+                            <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
                                 <div>
                                     <h3 className="text-xl font-extrabold text-gray-900 dark:text-white">
                                         {selectedDate.format('MMM D, YYYY')}
@@ -176,17 +177,16 @@ export default function Calendar() {
                                 </div>
                                 <button 
                                     onClick={() => setSelectedDate(null)} 
-                                    className="p-2 bg-white dark:bg-gray-700 rounded-full shadow-sm hover:text-red-500 transition-all hover:rotate-90"
+                                    className="p-2 bg-white dark:bg-gray-800 rounded-full shadow-sm border border-gray-100 dark:border-gray-700 hover:text-red-500 transition-all hover:rotate-90"
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
 
-                            {/* Task List Content */}
                             <div className="flex-grow overflow-y-auto p-6">
                                 {detailTasks.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-12 text-center">
-                                        <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-full mb-4">
+                                        <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-full mb-4">
                                             <ListTodo className="w-8 h-8 text-gray-400" />
                                         </div>
                                         <p className="text-gray-400 dark:text-gray-500 italic">No tasks for this day.</p>
@@ -194,7 +194,7 @@ export default function Calendar() {
                                 ) : (
                                     <ul className="space-y-4">
                                         {detailTasks.map((task, index) => (
-                                            <li key={index} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all group">
+                                            <li key={index} className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all group">
                                                 <div className="flex justify-between items-start mb-2">
                                                     <span className="font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 transition-colors">
                                                         {task.text}
@@ -217,8 +217,7 @@ export default function Calendar() {
                                 )}
                             </div>
 
-                            {/* Panel Footer (Optional) */}
-                            <div className="p-4 bg-gray-50/50 dark:bg-gray-900/30 text-center border-t border-gray-100 dark:border-gray-700">
+                            <div className="p-4 bg-gray-50/50 dark:bg-gray-800/50 text-center border-t border-gray-100 dark:border-gray-800">
                                 <p className="text-[10px] text-gray-400 font-medium">TaskMaster • {detailTasks.length} items</p>
                             </div>
                         </div>
