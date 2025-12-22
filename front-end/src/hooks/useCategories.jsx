@@ -1,37 +1,58 @@
-import React, { createContext, useContext, useState } from "react";
-// import toast from 'react-hot-toast';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import api from '../services/api';
 
-const CategoryContext = createContext(null);
+export const CategoryContext = createContext(null);
 
 export const CategoryProvider = ({ children }) => {
-  // DUMMY DATA - Replace with API Call (GET /categories)
-  const [categories, setCategories] = useState([
-    { id: 'default-1', name: 'general', color: '#6366f1' }, 
-    { id: 'default-2', name: 'design', color: '#f97316' }, 
-    { id: 'default-3', name: 'dev', color: '#10b981' },
-  ]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const addCategory = (name, color = '#6366f1') => {
-    // API Call: POST /categories
-    const newCategory = { id: Date.now(), name, color };
-    setCategories((prev) => [...prev, newCategory]);
-    // toast.success(`Category '${name}' added.`);
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get('/categories');
+      setCategories(res.data);
+    } catch (err) {
+      console.error("Fetch categories error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const deleteCategory = (id) => {
-    // API Call: DELETE /categories/:id
-    if (id.startsWith('default-')) {
-        // toast.error("Cannot delete default categories.");
-        return;
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const addCategory = async (name, color) => {
+    try {
+      const res = await api.post('/categories', { name, color });
+      // Add the NEW category from server (includes _id from MongoDB)
+      setCategories((prev) => [...prev, res.data]);
+    } catch (err) {
+      console.error("Add category error:", err);
+      alert("Failed to add category. It might already exist.");
     }
-    setCategories((prev) => prev.filter((c) => c.id !== id));
-    // toast.success("Category deleted.");
+  };
+
+  const deleteCategory = async (id) => {
+    if (!id) {
+      console.error("No ID provided for deletion");
+      return;
+    }
+    
+    try {
+      // Hit the backend DELETE route
+      await api.delete(`/categories/${id}`);
+      
+      // Update UI immediately by filtering out the deleted category
+      setCategories((prev) => prev.filter((cat) => cat._id !== id));
+    } catch (err) {
+      console.error("Delete category error:", err);
+      alert("Failed to delete category");
+    }
   };
 
   return (
-    <CategoryContext.Provider
-      value={{ categories, addCategory, deleteCategory }}
-    >
+    <CategoryContext.Provider value={{ categories, addCategory, deleteCategory, loading }}>
       {children}
     </CategoryContext.Provider>
   );
