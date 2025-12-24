@@ -5,6 +5,7 @@ import MainLayout from "./layouts/MainLayout.jsx";
 
 import Login from "./pages/Login.jsx";
 import SignUp from "./pages/SignUp.jsx";
+import OTPVerification from "./pages/OTPVerification.jsx";
 import Home from "./pages/Home.jsx";
 import Upcoming from "./pages/Upcoming.jsx"; 
 import CalendarPage from "./pages/Calendar.jsx";
@@ -17,7 +18,6 @@ import NotFound from "./pages/NotFound.jsx";
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
 
-  // Prevents redirecting to login while the backend is still verifying the token
   if (loading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-white dark:bg-gray-900">
@@ -32,13 +32,11 @@ function ProtectedRoute({ children }) {
 export default function App() {
   const { user, loading } = useAuth();
 
-  // If the app is checking for an existing session, show nothing or a splash screen
   if (loading) return null; 
 
   return (
     <BrowserRouter>
       <Routes>
-        {/* 🔓 Public routes */}
         <Route 
           path="/login" 
           element={user ? <Navigate to="/" replace /> : <Login />} 
@@ -47,8 +45,11 @@ export default function App() {
           path="/signup" 
           element={user ? <Navigate to="/" replace /> : <SignUp />} 
         />
+        <Route 
+          path="/verify-otp" 
+          element={user ? <Navigate to="/" replace /> : <OTPVerification />} 
+        />
 
-        {/* 🔒 Protected Layout Route */}
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
             <Route path="/" element={<Home />} />
             <Route path="/upcoming" element={<Upcoming />} /> 
@@ -59,7 +60,6 @@ export default function App() {
             <Route path="/settings" element={<Settings />} />
         </Route>
 
-        {/* ❌ 404 */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
