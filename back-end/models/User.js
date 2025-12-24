@@ -1,36 +1,78 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
-const UserSchema = new mongoose.Schema({
-  name: { 
-    type: String, 
-    required: true 
-  },
-  email: { 
-    type: String, 
-    required: true, 
-    unique: true 
-  },
-  password: { 
-    type: String, 
-    required: true 
-  },
-  mobile: {
+const userSchema = new mongoose.Schema({
+  name: {
     type: String,
-    default: ''
+    required: [true, 'Please add a name'],
+    trim: true
   },
-  dob: {
+  email: {
     type: String,
-    default: ''
+    required: [true, 'Please add an email'],
+    unique: true,
+    lowercase: true,
+    trim: true,
+    match: [
+      /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+      'Please add a valid email'
+    ]
   },
-  gender: {
+  password: {
     type: String,
-    enum: ['', 'male', 'female', 'other', 'prefer-not-to-say'],
-    default: ''
+    required: [true, 'Please add a password'],
+    minlength: 8,
+    select: false
   },
-  date: { 
-    type: Date, 
-    default: Date.now 
+  emailVerified: {
+    type: Boolean,
+    default: false
+  },
+  verifiedAt: {
+    type: Date
+  },
+  resetPasswordToken: String,
+  resetPasswordExpire: Date,
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  lastLogin: {
+    type: Date
   }
 });
 
-export default mongoose.model('user', UserSchema);
+// CRITICAL FIX: Only hash password if it was actually modified
+// This prevents re-hashing when updating other fields like lastLogin
+userSchema.pre('save', async function() {
+  // Skip if password hasn't been modified
+  if (!this.isModified('password')) {
+    return;
+  }
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    console.log('Password hashed successfully');
+  } catch (error) {
+    console.error('Error hashing password:', error);
+    throw error;
+  }
+});
+
+// Method to compare passwords
+userSchema.methods.matchPassword = async function(enteredPassword) {
+  try {
+    console.log('Comparing passwords...');
+    const isMatch = await bcrypt.compare(enteredPassword, this.password);
+    console.log('Password match result:', isMatch);
+    return isMatch;
+  } catch (error) {
+    console.error('Error comparing passwords:', error);
+    throw error;
+  }
+};
+
+const User = mongoose.model('User', userSchema);
+
+export default User;
