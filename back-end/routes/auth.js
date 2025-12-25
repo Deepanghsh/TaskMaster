@@ -336,6 +336,9 @@ router.post('/complete-login', async (req, res) => {
         name: user.name,
         email: user.email,
         emailVerified: user.emailVerified,
+        mobile: user.mobile,
+        dob: user.dob,
+        gender: user.gender,
         token
       }
     });
@@ -444,6 +447,110 @@ router.get('/me', async (req, res) => {
     res.status(401).json({
       success: false,
       message: 'Invalid token'
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/auth/me
+ * @desc    Update current user profile
+ * @access  Private
+ */
+router.put('/me', async (req, res) => {
+  try {
+    // Get token from header
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'No token provided'
+      });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Update allowed fields
+    const { name, email, mobile, dob, gender } = req.body;
+
+    if (name) user.name = name;
+    if (email && email !== user.email) {
+      // Check if email is already taken
+      const emailExists = await User.findOne({ email, _id: { $ne: user._id } });
+      if (emailExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email already in use'
+        });
+      }
+      user.email = email;
+    }
+    if (mobile !== undefined) user.mobile = mobile;
+    if (dob !== undefined) user.dob = dob;
+    if (gender !== undefined) user.gender = gender;
+
+    await user.save();
+
+    // Return updated user without password
+    const updatedUser = await User.findById(user._id).select('-password');
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: updatedUser
+    });
+
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during profile update'
+    });
+  }
+});
+
+/**
+ * @route   DELETE /api/auth/me
+ * @desc    Delete current user account
+ * @access  Private
+ */
+router.delete('/me', async (req, res) => {
+  try {
+    // Get token from header
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'No token provided'
+      });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Delete user
+    await User.findByIdAndDelete(decoded.id);
+
+    res.json({
+      success: true,
+      message: 'Account deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during account deletion'
     });
   }
 });
