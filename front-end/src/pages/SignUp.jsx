@@ -8,7 +8,6 @@ import { isValidEmail } from '../utils/validationUtils';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
-// Password Requirement Checker Component
 const PasswordChecker = ({ password }) => {
     const checks = [
         { regex: /.{8,}/, label: "8 characters minimum" },
@@ -92,10 +91,12 @@ const SignUp = () => {
             return;
         }
 
+        localStorage.clear();
+        sessionStorage.clear();
+
         setIsLoading(true);
 
         try {
-            // Step 1: Register user with backend
             const response = await fetch(`${API_BASE_URL}/auth/register-with-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -110,7 +111,6 @@ const SignUp = () => {
                 return;
             }
 
-            // Step 2: Send OTP to user's email
             const otpResponse = await fetch(`${API_BASE_URL}/otp/send`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -129,7 +129,6 @@ const SignUp = () => {
                 return;
             }
 
-            // Step 3: Navigate to OTP verification page
             navigate('/verify-otp', {
                 state: {
                     email,
@@ -154,7 +153,6 @@ const SignUp = () => {
               : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'
           } relative overflow-hidden`}>
 
-            {/* Animated background elements */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <motion.div 
                     initial={{ scale: 0.8, opacity: 0 }}
@@ -183,7 +181,6 @@ const SignUp = () => {
                     transition={{ duration: 0.6 }}
                     className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20 dark:border-gray-700/20"
                 >
-                    {/* Logo/Icon */}
                     <div className="flex justify-center mb-6">
                         <motion.div
                             initial={{ scale: 0, rotate: -180 }}
@@ -202,7 +199,6 @@ const SignUp = () => {
                         <p className="text-gray-600 dark:text-gray-400">Join us and start your journey</p>
                     </div>
 
-                    {/* Error Message */}
                     <AnimatePresence>
                         {generalError && (
                             <motion.div 
@@ -218,7 +214,6 @@ const SignUp = () => {
                     </AnimatePresence>
 
                     <form onSubmit={handleSubmit} className="space-y-5">
-                        {/* Name Field */}
                         <motion.div 
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
@@ -241,7 +236,6 @@ const SignUp = () => {
                             </div>
                         </motion.div>
 
-                        {/* Email Field */}
                         <motion.div 
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
@@ -264,7 +258,6 @@ const SignUp = () => {
                             </div>
                         </motion.div>
 
-                        {/* Password Field */}
                         <motion.div 
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
@@ -298,7 +291,6 @@ const SignUp = () => {
                             </AnimatePresence>
                         </motion.div>
 
-                        {/* Submit Button */}
                         <motion.button
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -321,7 +313,6 @@ const SignUp = () => {
                         </motion.button>
                     </form>
 
-                    {/* Divider */}
                     <div className="relative my-6">
                         <div className="absolute inset-0 flex items-center">
                             <div className="w-full border-t border-gray-300 dark:border-gray-600" />
@@ -331,7 +322,6 @@ const SignUp = () => {
                         </div>
                     </div>
 
-                    {/* Sign In Link */}
                     <div className="text-center text-sm">
                         <span className="text-gray-600 dark:text-gray-400">Already have an account? </span>
                         <Link 
@@ -343,7 +333,6 @@ const SignUp = () => {
                     </div>
                 </motion.div>
 
-                {/* Footer text */}
                 <motion.p 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
