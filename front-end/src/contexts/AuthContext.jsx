@@ -40,8 +40,19 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
+  const clearAuthData = () => {
+    setUser(null);
+    setToken(null);
+    delete api.defaults.headers.common['Authorization'];
+    delete api.defaults.headers.common['x-auth-token'];
+    sessionStorage.clear();
+    localStorage.clear();
+  };
+
   const login = async (email, password) => {
     try {
+      clearAuthData();
+
       const res = await api.post("/auth/login", { email, password });
 
       const newToken = res.data.data.token;
@@ -68,6 +79,8 @@ export const AuthProvider = ({ children }) => {
 
   const completeLogin = async (email) => {
     try {
+      clearAuthData();
+
       const res = await api.post("/auth/complete-login", { email });
 
       const newToken = res.data.data.token;
@@ -93,6 +106,8 @@ export const AuthProvider = ({ children }) => {
 
   const signup = async (name, email, password) => {
     try {
+      clearAuthData();
+
       const res = await api.post("/auth/register", { name, email, password });
 
       const newToken = res.data.data.token;
@@ -119,6 +134,8 @@ export const AuthProvider = ({ children }) => {
 
   const verifyEmail = async (email) => {
     try {
+      clearAuthData();
+
       const res = await api.post("/auth/verify-email", { email });
 
       const newToken = res.data.data.token;
