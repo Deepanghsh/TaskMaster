@@ -2,29 +2,21 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import OTP from '../models/OTP.js';
+import logger from '../config/logger.js';
 import { sendOTPEmail, sendWelcomeEmail } from '../utils/emailService.js';
 
 const router = express.Router();
 
-/**
- * Generate JWT Token
- */
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: '30d'
   });
 };
 
-/**
- * @route   POST /api/auth/register
- * @desc    Register a new user (without OTP)
- * @access  Public
- */
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Validation
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -32,16 +24,15 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Check if user already exists
     const userExists = await User.findOne({ email });
     if (userExists) {
+      logger.warn(`Registration attempt with existing email: ${email}`);
       return res.status(400).json({
         success: false,
         message: 'User already exists with this email'
       });
     }
 
-    // Validate password strength
     if (password.length < 8) {
       return res.status(400).json({
         success: false,
@@ -49,7 +40,6 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Create user
     const user = await User.create({
       name,
       email,
@@ -57,8 +47,9 @@ router.post('/register', async (req, res) => {
       emailVerified: false
     });
 
-    // Generate token
     const token = generateToken(user._id);
+
+    logger.info(`New user registered: ${email}`);
 
     res.status(201).json({
       success: true,
@@ -73,7 +64,7 @@ router.post('/register', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Registration error:', error);
+    logger.error(`Registration error: ${error.message}`);
     res.status(500).json({
       success: false,
       message: 'Server error during registration'
@@ -81,16 +72,10 @@ router.post('/register', async (req, res) => {
   }
 });
 
-/**
- * @route   POST /api/auth/register-with-otp
- * @desc    Register user and send OTP for verification
- * @access  Public
- */
 router.post('/register-with-otp', async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Validation
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -98,16 +83,15 @@ router.post('/register-with-otp', async (req, res) => {
       });
     }
 
-    // Check if user already exists
     const userExists = await User.findOne({ email });
     if (userExists) {
+      logger.warn(`Registration attempt with existing email: ${email}`);
       return res.status(400).json({
         success: false,
         message: 'User already exists with this email'
       });
     }
 
-    // Validate password strength
     if (password.length < 8) {
       return res.status(400).json({
         success: false,
@@ -115,7 +99,6 @@ router.post('/register-with-otp', async (req, res) => {
       });
     }
 
-    // Create user (unverified)
     const user = await User.create({
       name,
       email,
@@ -123,8 +106,7 @@ router.post('/register-with-otp', async (req, res) => {
       emailVerified: false
     });
 
-    // OTP is sent separately via /api/otp/send
-    // This endpoint just creates the user account
+    logger.info(`New user registered (OTP flow): ${email}`);
 
     res.status(201).json({
       success: true,
@@ -139,7 +121,7 @@ router.post('/register-with-otp', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Registration error:', error);
+    logger.error(`Registration error: ${error.message}`);
     res.status(500).json({
       success: false,
       message: 'Server error during registration'
@@ -147,33 +129,21 @@ router.post('/register-with-otp', async (req, res) => {
   }
 });
 
-/**
- * @route   POST /api/auth/login
- * @desc    Login user with enhanced error handling
- * @access  Public
- */
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    console.log('Login attempt for email:', email);
-
-    // Validation
     if (!email || !password) {
-      console.log('Missing credentials');
       return res.status(400).json({
         success: false,
         message: 'Please provide email and password'
       });
     }
 
-    // Find user and include password field
     const user = await User.findOne({ email }).select('+password');
     
-    console.log('User found:', !!user);
-    
     if (!user) {
-      console.log('User not found for email:', email);
+      logger.warn(`Login attempt with non-existent email: ${email}`);
       return res.status(401).json({
         success: false,
         errorCode: 'USER_NOT_FOUND',
@@ -181,11 +151,8 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    console.log('User password field exists:', !!user.password);
-
-    // Check password
     if (!user.password) {
-      console.error('User password field is missing!');
+      logger.error(`User password field missing for: ${email}`);
       return res.status(500).json({
         success: false,
         message: 'Account error. Please contact support.'
@@ -193,10 +160,9 @@ router.post('/login', async (req, res) => {
     }
 
     const isPasswordMatch = await user.matchPassword(password);
-    console.log('Password match result:', isPasswordMatch);
 
     if (!isPasswordMatch) {
-      console.log('Password mismatch for user:', email);
+      logger.warn(`Failed login attempt for: ${email}`);
       return res.status(401).json({
         success: false,
         errorCode: 'INVALID_PASSWORD',
@@ -204,13 +170,11 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Update last login - Use findByIdAndUpdate to avoid triggering save hooks
     await User.findByIdAndUpdate(user._id, { lastLogin: new Date() });
 
-    // Generate token
     const token = generateToken(user._id);
 
-    console.log('Login successful for user:', email);
+    logger.info(`User logged in successfully: ${email}`);
 
     res.json({
       success: true,
@@ -225,8 +189,7 @@ router.post('/login', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Login error:', error);
-    console.error('Error stack:', error.stack);
+    logger.error(`Login error: ${error.message}`);
     res.status(500).json({
       success: false,
       message: 'Server error during login',
@@ -235,16 +198,10 @@ router.post('/login', async (req, res) => {
   }
 });
 
-/**
- * @route   POST /api/auth/login-with-otp
- * @desc    Login user and require OTP verification
- * @access  Public
- */
 router.post('/login-with-otp', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validation
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -252,10 +209,10 @@ router.post('/login-with-otp', async (req, res) => {
       });
     }
 
-    // Find user
     const user = await User.findOne({ email }).select('+password');
 
     if (!user) {
+      logger.warn(`Login attempt with non-existent email: ${email}`);
       return res.status(401).json({
         success: false,
         errorCode: 'USER_NOT_FOUND',
@@ -263,10 +220,10 @@ router.post('/login-with-otp', async (req, res) => {
       });
     }
 
-    // Check password
     const isPasswordMatch = await user.matchPassword(password);
 
     if (!isPasswordMatch) {
+      logger.warn(`Failed login attempt for: ${email}`);
       return res.status(401).json({
         success: false,
         errorCode: 'INVALID_PASSWORD',
@@ -274,8 +231,7 @@ router.post('/login-with-otp', async (req, res) => {
       });
     }
 
-    // Credentials are valid, but OTP is required
-    // OTP should be sent via /api/otp/send
+    logger.info(`Credentials verified for OTP login: ${email}`);
     
     res.json({
       success: true,
@@ -288,7 +244,7 @@ router.post('/login-with-otp', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error(`Login error: ${error.message}`);
     res.status(500).json({
       success: false,
       message: 'Server error during login'
@@ -296,11 +252,6 @@ router.post('/login-with-otp', async (req, res) => {
   }
 });
 
-/**
- * @route   POST /api/auth/complete-login
- * @desc    Complete login after OTP verification
- * @access  Public
- */
 router.post('/complete-login', async (req, res) => {
   try {
     const { email } = req.body;
@@ -312,7 +263,6 @@ router.post('/complete-login', async (req, res) => {
       });
     }
 
-    // Find user
     const user = await User.findOne({ email });
 
     if (!user) {
@@ -322,11 +272,11 @@ router.post('/complete-login', async (req, res) => {
       });
     }
 
-    // Update last login
     await User.findByIdAndUpdate(user._id, { lastLogin: new Date() });
 
-    // Generate token
     const token = generateToken(user._id);
+
+    logger.info(`Login completed for: ${email}`);
 
     res.json({
       success: true,
@@ -344,7 +294,7 @@ router.post('/complete-login', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Complete login error:', error);
+    logger.error(`Complete login error: ${error.message}`);
     res.status(500).json({
       success: false,
       message: 'Server error during login completion'
@@ -352,11 +302,6 @@ router.post('/complete-login', async (req, res) => {
   }
 });
 
-/**
- * @route   POST /api/auth/verify-email
- * @desc    Verify user email after OTP verification
- * @access  Public
- */
 router.post('/verify-email', async (req, res) => {
   try {
     const { email } = req.body;
@@ -368,7 +313,6 @@ router.post('/verify-email', async (req, res) => {
       });
     }
 
-    // Find and update user
     const user = await User.findOne({ email });
 
     if (!user) {
@@ -378,15 +322,14 @@ router.post('/verify-email', async (req, res) => {
       });
     }
 
-    // Mark email as verified
     user.emailVerified = true;
     await user.save();
 
-    // Send welcome email
     await sendWelcomeEmail(user.email, user.name);
 
-    // Generate token
     const token = generateToken(user._id);
+
+    logger.info(`Email verified for: ${email}`);
 
     res.json({
       success: true,
@@ -401,7 +344,7 @@ router.post('/verify-email', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Email verification error:', error);
+    logger.error(`Email verification error: ${error.message}`);
     res.status(500).json({
       success: false,
       message: 'Server error during email verification'
@@ -409,14 +352,8 @@ router.post('/verify-email', async (req, res) => {
   }
 });
 
-/**
- * @route   GET /api/auth/me
- * @desc    Get current user
- * @access  Private
- */
 router.get('/me', async (req, res) => {
   try {
-    // Get token from header
     const token = req.headers.authorization?.replace('Bearer ', '');
 
     if (!token) {
@@ -426,7 +363,6 @@ router.get('/me', async (req, res) => {
       });
     }
 
-    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id).select('-password');
 
@@ -443,7 +379,7 @@ router.get('/me', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get user error:', error);
+    logger.error(`Get user error: ${error.message}`);
     res.status(401).json({
       success: false,
       message: 'Invalid token'
@@ -451,14 +387,8 @@ router.get('/me', async (req, res) => {
   }
 });
 
-/**
- * @route   PUT /api/auth/me
- * @desc    Update current user profile
- * @access  Private
- */
 router.put('/me', async (req, res) => {
   try {
-    // Get token from header
     const token = req.headers.authorization?.replace('Bearer ', '');
 
     if (!token) {
@@ -468,7 +398,6 @@ router.put('/me', async (req, res) => {
       });
     }
 
-    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id);
 
@@ -479,12 +408,10 @@ router.put('/me', async (req, res) => {
       });
     }
 
-    // Update allowed fields
     const { name, email, mobile, dob, gender } = req.body;
 
     if (name) user.name = name;
     if (email && email !== user.email) {
-      // Check if email is already taken
       const emailExists = await User.findOne({ email, _id: { $ne: user._id } });
       if (emailExists) {
         return res.status(400).json({
@@ -500,8 +427,9 @@ router.put('/me', async (req, res) => {
 
     await user.save();
 
-    // Return updated user without password
     const updatedUser = await User.findById(user._id).select('-password');
+
+    logger.info(`Profile updated for user: ${user.email}`);
 
     res.json({
       success: true,
@@ -510,7 +438,7 @@ router.put('/me', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Update profile error:', error);
+    logger.error(`Update profile error: ${error.message}`);
     res.status(500).json({
       success: false,
       message: 'Server error during profile update'
@@ -518,14 +446,8 @@ router.put('/me', async (req, res) => {
   }
 });
 
-/**
- * @route   DELETE /api/auth/me
- * @desc    Delete current user account
- * @access  Private
- */
 router.delete('/me', async (req, res) => {
   try {
-    // Get token from header
     const token = req.headers.authorization?.replace('Bearer ', '');
 
     if (!token) {
@@ -535,11 +457,11 @@ router.delete('/me', async (req, res) => {
       });
     }
 
-    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Delete user
     await User.findByIdAndDelete(decoded.id);
+
+    logger.info(`Account deleted for user ID: ${decoded.id}`);
 
     res.json({
       success: true,
@@ -547,7 +469,7 @@ router.delete('/me', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Delete account error:', error);
+    logger.error(`Delete account error: ${error.message}`);
     res.status(500).json({
       success: false,
       message: 'Server error during account deletion'
@@ -555,5 +477,4 @@ router.delete('/me', async (req, res) => {
   }
 });
 
-// CRITICAL: Must export the router as default
 export default router;
