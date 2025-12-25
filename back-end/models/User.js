@@ -31,6 +31,22 @@ const userSchema = new mongoose.Schema({
   verifiedAt: {
     type: Date
   },
+  // NEW FIELDS FOR SETTINGS PAGE
+  mobile: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  dob: {
+    type: String,
+    default: ''
+  },
+  gender: {
+    type: String,
+    enum: ['male', 'female', 'other', 'prefer-not-to-say', ''],
+    default: ''
+  },
+  // END NEW FIELDS
   resetPasswordToken: String,
   resetPasswordExpire: Date,
   createdAt: {
