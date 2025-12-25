@@ -2,19 +2,16 @@ import express from 'express';
 import crypto from 'crypto';
 import OTP from '../models/OTP.js';
 import User from '../models/User.js';
+import logger from '../config/logger.js';
 import { sendOTPEmail } from '../utils/emailService.js';
 
 const router = express.Router();
 
-// Configuration from environment variables
 const OTP_LENGTH = parseInt(process.env.OTP_LENGTH) || 6;
 const OTP_EXPIRY_MINUTES = parseInt(process.env.OTP_EXPIRY_MINUTES) || 10;
 const MAX_ATTEMPTS = 3;
 const RESEND_COOLDOWN_SECONDS = 60;
 
-/**
- * Generate a random OTP
- */
 function generateOTP(length = OTP_LENGTH) {
   const digits = '0123456789';
   let otp = '';
@@ -27,16 +24,10 @@ function generateOTP(length = OTP_LENGTH) {
   return otp;
 }
 
-/**
- * @route   POST /api/otp/send
- * @desc    Send OTP to user's email
- * @access  Public
- */
 router.post('/send', async (req, res) => {
   try {
     const { email, name, purpose = 'verification' } = req.body;
 
-    // Validate email
     if (!email || !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
       return res.status(400).json({
         success: false,
@@ -45,16 +36,15 @@ router.post('/send', async (req, res) => {
       });
     }
 
-    // Check if there's an existing OTP
     const existingOTP = await OTP.findOne({ email });
     
     if (existingOTP) {
-      // Check resend cooldown
       const timeSinceCreation = Date.now() - existingOTP.createdAt.getTime();
       const cooldownMs = RESEND_COOLDOWN_SECONDS * 1000;
 
       if (timeSinceCreation < cooldownMs) {
         const remainingSeconds = Math.ceil((cooldownMs - timeSinceCreation) / 1000);
+        logger.warn(`OTP resend cooldown active for ${email}, ${remainingSeconds}s remaining`);
         return res.status(429).json({
           success: false,
           error: 'RESEND_COOLDOWN',
@@ -64,11 +54,9 @@ router.post('/send', async (req, res) => {
       }
     }
 
-    // Generate new OTP
     const otp = generateOTP();
     const expiryTime = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-    // Store OTP in database
     await OTP.findOneAndUpdate(
       { email },
       {
@@ -82,10 +70,10 @@ router.post('/send', async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // Send OTP via email
     const emailSent = await sendOTPEmail(email, name, otp, OTP_EXPIRY_MINUTES);
 
     if (!emailSent) {
+      logger.error(`Failed to send OTP email to ${email}`);
       return res.status(500).json({
         success: false,
         error: 'EMAIL_SEND_FAILED',
@@ -93,20 +81,20 @@ router.post('/send', async (req, res) => {
       });
     }
 
-    // In development, log OTP (REMOVE IN PRODUCTION)
     if (process.env.NODE_ENV === 'development') {
-      console.log(`\n🔐 OTP for ${email}: ${otp}`);
-      console.log(`⏰ Expires in ${OTP_EXPIRY_MINUTES} minutes\n`);
+      logger.debug(`OTP generated for ${email}: ${otp} (expires in ${OTP_EXPIRY_MINUTES} minutes)`);
     }
+
+    logger.info(`OTP sent to ${email}`);
 
     res.json({
       success: true,
       message: 'OTP sent successfully to your email.',
-      expiresIn: OTP_EXPIRY_MINUTES * 60 // seconds
+      expiresIn: OTP_EXPIRY_MINUTES * 60
     });
 
   } catch (error) {
-    console.error('❌ Error sending OTP:', error);
+    logger.error(`Error sending OTP: ${error.message}`);
     res.status(500).json({
       success: false,
       error: 'SERVER_ERROR',
@@ -115,16 +103,10 @@ router.post('/send', async (req, res) => {
   }
 });
 
-/**
- * @route   POST /api/otp/verify
- * @desc    Verify OTP code
- * @access  Public
- */
 router.post('/verify', async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    // Validate input
     if (!email || !otp) {
       return res.status(400).json({
         success: false,
@@ -141,10 +123,10 @@ router.post('/verify', async (req, res) => {
       });
     }
 
-    // Find OTP in database
     const storedOTP = await OTP.findOne({ email });
 
     if (!storedOTP) {
+      logger.warn(`OTP verification attempt for non-existent OTP: ${email}`);
       return res.status(400).json({
         success: false,
         error: 'NO_OTP_FOUND',
@@ -152,9 +134,9 @@ router.post('/verify', async (req, res) => {
       });
     }
 
-    // Check if OTP has expired
     if (Date.now() > storedOTP.expiryTime.getTime()) {
       await OTP.deleteOne({ email });
+      logger.warn(`Expired OTP verification attempt: ${email}`);
       return res.status(400).json({
         success: false,
         error: 'OTP_EXPIRED',
@@ -162,9 +144,9 @@ router.post('/verify', async (req, res) => {
       });
     }
 
-    // Check if max attempts exceeded
     if (storedOTP.attempts >= MAX_ATTEMPTS) {
       await OTP.deleteOne({ email });
+      logger.warn(`Max OTP attempts exceeded for: ${email}`);
       return res.status(400).json({
         success: false,
         error: 'MAX_ATTEMPTS_EXCEEDED',
@@ -172,9 +154,7 @@ router.post('/verify', async (req, res) => {
       });
     }
 
-    // Verify OTP
     if (storedOTP.otp === otp) {
-      // OTP is correct - Mark email as verified if user exists
       const user = await User.findOne({ email });
       if (user && !user.emailVerified) {
         await User.findOneAndUpdate(
@@ -184,10 +164,9 @@ router.post('/verify', async (req, res) => {
         );
       }
 
-      // Delete OTP after successful verification
       await OTP.deleteOne({ email });
 
-      console.log(`✅ OTP verified successfully for ${email}`);
+      logger.info(`OTP verified successfully for ${email}`);
 
       return res.json({
         success: true,
@@ -198,11 +177,12 @@ router.post('/verify', async (req, res) => {
         }
       });
     } else {
-      // Incorrect OTP - Increment attempts
       storedOTP.attempts += 1;
       await storedOTP.save();
 
       const attemptsLeft = MAX_ATTEMPTS - storedOTP.attempts;
+
+      logger.warn(`Invalid OTP attempt for ${email}, ${attemptsLeft} attempts remaining`);
 
       if (attemptsLeft <= 0) {
         await OTP.deleteOne({ email });
@@ -223,7 +203,7 @@ router.post('/verify', async (req, res) => {
     }
 
   } catch (error) {
-    console.error('❌ Error verifying OTP:', error);
+    logger.error(`Error verifying OTP: ${error.message}`);
     res.status(500).json({
       success: false,
       error: 'SERVER_ERROR',
@@ -232,16 +212,10 @@ router.post('/verify', async (req, res) => {
   }
 });
 
-/**
- * @route   POST /api/otp/resend
- * @desc    Resend OTP to user's email
- * @access  Public
- */
 router.post('/resend', async (req, res) => {
   try {
     const { email, name } = req.body;
 
-    // Validate email
     if (!email) {
       return res.status(400).json({
         success: false,
@@ -250,16 +224,15 @@ router.post('/resend', async (req, res) => {
       });
     }
 
-    // Check if there's an existing OTP
     const existingOTP = await OTP.findOne({ email });
     
     if (existingOTP) {
-      // Check resend cooldown
       const timeSinceCreation = Date.now() - existingOTP.createdAt.getTime();
       const cooldownMs = RESEND_COOLDOWN_SECONDS * 1000;
 
       if (timeSinceCreation < cooldownMs) {
         const remainingSeconds = Math.ceil((cooldownMs - timeSinceCreation) / 1000);
+        logger.warn(`OTP resend cooldown active for ${email}`);
         return res.status(429).json({
           success: false,
           error: 'RESEND_COOLDOWN',
@@ -269,14 +242,11 @@ router.post('/resend', async (req, res) => {
       }
     }
 
-    // Generate new OTP
     const otp = generateOTP();
     const expiryTime = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-    // Get existing metadata or use provided name
     const metadata = existingOTP?.metadata || { name };
 
-    // Store new OTP (resets attempts)
     await OTP.findOneAndUpdate(
       { email },
       {
@@ -290,7 +260,6 @@ router.post('/resend', async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // Send OTP via email
     const emailSent = await sendOTPEmail(
       email, 
       name || metadata.name, 
@@ -299,6 +268,7 @@ router.post('/resend', async (req, res) => {
     );
 
     if (!emailSent) {
+      logger.error(`Failed to resend OTP email to ${email}`);
       return res.status(500).json({
         success: false,
         error: 'EMAIL_SEND_FAILED',
@@ -306,11 +276,11 @@ router.post('/resend', async (req, res) => {
       });
     }
 
-    // In development, log OTP
     if (process.env.NODE_ENV === 'development') {
-      console.log(`\n🔐 Resent OTP for ${email}: ${otp}`);
-      console.log(`⏰ Expires in ${OTP_EXPIRY_MINUTES} minutes\n`);
+      logger.debug(`OTP resent for ${email}: ${otp}`);
     }
+
+    logger.info(`OTP resent to ${email}`);
 
     res.json({
       success: true,
@@ -319,7 +289,7 @@ router.post('/resend', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error resending OTP:', error);
+    logger.error(`Error resending OTP: ${error.message}`);
     res.status(500).json({
       success: false,
       error: 'SERVER_ERROR',
@@ -328,13 +298,7 @@ router.post('/resend', async (req, res) => {
   }
 });
 
-/**
- * @route   GET /api/otp/status/:email
- * @desc    Check OTP status for an email (for debugging/admin purposes)
- * @access  Public (should be protected in production)
- */
 router.get('/status/:email', async (req, res) => {
-  // IMPORTANT: Remove or protect this endpoint in production
   if (process.env.NODE_ENV === 'production') {
     return res.status(404).json({ error: 'Not found' });
   }
@@ -353,7 +317,7 @@ router.get('/status/:email', async (req, res) => {
     res.json({
       exists: true,
       email: storedOTP.email,
-      otp: storedOTP.otp, // Only in development
+      otp: storedOTP.otp,
       expiresAt: storedOTP.expiryTime.toISOString(),
       expiresIn: Math.max(0, Math.ceil((storedOTP.expiryTime.getTime() - Date.now()) / 1000)),
       attempts: storedOTP.attempts,
@@ -364,7 +328,7 @@ router.get('/status/:email', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error getting OTP status:', error);
+    logger.error(`Error getting OTP status: ${error.message}`);
     res.status(500).json({
       success: false,
       error: 'SERVER_ERROR',
@@ -373,16 +337,15 @@ router.get('/status/:email', async (req, res) => {
   }
 });
 
-// Cleanup expired OTPs every minute
 setInterval(async () => {
   try {
     const now = new Date();
     const result = await OTP.deleteMany({ expiryTime: { $lt: now } });
     if (result.deletedCount > 0) {
-      console.log(`🧹 Cleaned up ${result.deletedCount} expired OTP(s)`);
+      logger.info(`Cleaned up ${result.deletedCount} expired OTP(s)`);
     }
   } catch (error) {
-    console.error('❌ Error cleaning up expired OTPs:', error);
+    logger.error(`Error cleaning up expired OTPs: ${error.message}`);
   }
 }, 60000);
 
