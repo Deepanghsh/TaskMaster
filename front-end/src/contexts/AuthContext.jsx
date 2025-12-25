@@ -4,36 +4,55 @@ import api from "../services/api";
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem("user");
-    return saved ? JSON.parse(saved) : null;
-  });
-  
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Load user data on mount from sessionStorage
+  useEffect(() => {
+    const loadUserData = () => {
+      try {
+        const savedToken = sessionStorage.getItem('auth_token');
+        const savedUser = sessionStorage.getItem('auth_user');
+        
+        if (savedToken && savedUser) {
+          setToken(savedToken);
+          setUser(JSON.parse(savedUser));
+        }
+      } catch (error) {
+        console.log('No saved auth data found');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadUserData();
+  }, []);
 
   // Set up axios interceptor to include token in all requests
   useEffect(() => {
-    const token = localStorage.getItem("token");
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      console.log('Token set in axios:', token.substring(0, 20) + '...');
+      api.defaults.headers.common['x-auth-token'] = token;
     } else {
       delete api.defaults.headers.common['Authorization'];
+      delete api.defaults.headers.common['x-auth-token'];
     }
-    setLoading(false);
-  }, [user]);
+  }, [token]);
 
   const login = async (email, password) => {
     try {
       const res = await api.post("/auth/login", { email, password });
 
-      const token = res.data.data.token;
+      const newToken = res.data.data.token;
       const userData = res.data.data;
 
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(userData));
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
+      // Save to sessionStorage
+      sessionStorage.setItem('auth_token', newToken);
+      sessionStorage.setItem('auth_user', JSON.stringify(userData));
+
+      // Update state
+      setToken(newToken);
       setUser(userData);
 
       return { success: true };
@@ -42,23 +61,24 @@ export const AuthProvider = ({ children }) => {
       return {
         success: false,
         errorCode: err.response?.data?.errorCode,
-        message: err.response?.data?.message || err.response?.data?.msg
+        message: err.response?.data?.message || err.response?.data?.msg || 'Login failed'
       };
     }
   };
 
-  // Complete login after OTP verification
   const completeLogin = async (email) => {
     try {
       const res = await api.post("/auth/complete-login", { email });
 
-      const token = res.data.data.token;
+      const newToken = res.data.data.token;
       const userData = res.data.data;
 
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(userData));
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
+      // Save to sessionStorage
+      sessionStorage.setItem('auth_token', newToken);
+      sessionStorage.setItem('auth_user', JSON.stringify(userData));
+
+      // Update state
+      setToken(newToken);
       setUser(userData);
 
       return { success: true };
@@ -66,7 +86,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Complete login error:', err);
       return {
         success: false,
-        message: err.response?.data?.message || err.response?.data?.msg
+        message: err.response?.data?.message || err.response?.data?.msg || 'Login completion failed'
       };
     }
   };
@@ -75,13 +95,15 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await api.post("/auth/register", { name, email, password });
 
-      const token = res.data.data.token;
+      const newToken = res.data.data.token;
       const userData = res.data.data;
 
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(userData));
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
+      // Save to sessionStorage
+      sessionStorage.setItem('auth_token', newToken);
+      sessionStorage.setItem('auth_user', JSON.stringify(userData));
+
+      // Update state
+      setToken(newToken);
       setUser(userData);
 
       return { success: true };
@@ -90,23 +112,24 @@ export const AuthProvider = ({ children }) => {
       return {
         success: false,
         errorCode: err.response?.data?.errorCode,
-        message: err.response?.data?.message || err.response?.data?.msg
+        message: err.response?.data?.message || err.response?.data?.msg || 'Signup failed'
       };
     }
   };
 
-  // Verify email after OTP verification
   const verifyEmail = async (email) => {
     try {
       const res = await api.post("/auth/verify-email", { email });
 
-      const token = res.data.data.token;
+      const newToken = res.data.data.token;
       const userData = res.data.data;
 
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(userData));
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
+      // Save to sessionStorage
+      sessionStorage.setItem('auth_token', newToken);
+      sessionStorage.setItem('auth_user', JSON.stringify(userData));
+
+      // Update state
+      setToken(newToken);
       setUser(userData);
 
       return { success: true };
@@ -114,23 +137,35 @@ export const AuthProvider = ({ children }) => {
       console.error('Verify email error:', err);
       return {
         success: false,
-        message: err.response?.data?.message || err.response?.data?.msg
+        message: err.response?.data?.message || err.response?.data?.msg || 'Email verification failed'
       };
     }
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
+    setToken(null);
     delete api.defaults.headers.common['Authorization'];
+    delete api.defaults.headers.common['x-auth-token'];
+    
+    // Clear sessionStorage
+    sessionStorage.removeItem('auth_token');
+    sessionStorage.removeItem('auth_user');
+  };
+
+  // Helper to update user data (for profile updates)
+  const updateUser = (newUserData) => {
+    setUser(newUserData);
+    // Update sessionStorage
+    sessionStorage.setItem('auth_user', JSON.stringify(newUserData));
   };
 
   return (
     <AuthContext.Provider value={{ 
       user, 
+      token,
       loading,
-      setUser, 
+      setUser: updateUser, 
       login, 
       completeLogin,
       signup, 
