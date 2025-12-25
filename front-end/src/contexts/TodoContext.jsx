@@ -6,10 +6,12 @@ import React, {
   useCallback,
 } from "react";
 import api from "../services/api.js";
+import { useAuth } from "../hooks/useAuth";
 
 const TodoContext = createContext(null);
 
 export const TodoProvider = ({ children }) => {
+  const { user, token } = useAuth();
   const [todos, setTodos] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -21,26 +23,21 @@ export const TodoProvider = ({ children }) => {
       if (err.response?.status !== 401) {
         console.error("Error fetching tasks:", err);
       }
+      setTodos([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    const handleAuthChange = () => {
-      const token = localStorage.getItem("token");
-      if (token) {
-        setLoading(true);
-        fetchTodos();
-      } else {
-        setTodos([]);
-        setLoading(false);
-      }
-    };
-    handleAuthChange();
-    window.addEventListener("storage", handleAuthChange);
-    return () => window.removeEventListener("storage", handleAuthChange);
-  }, [fetchTodos]);
+    if (user && token) {
+      setLoading(true);
+      fetchTodos();
+    } else {
+      setTodos([]);
+      setLoading(false);
+    }
+  }, [user, token, fetchTodos]);
 
   const addTodo = async (text, category = "general", dueDate = "", priority = "Medium", description = "") => {
     if (!text.trim()) return;
@@ -77,7 +74,6 @@ export const TodoProvider = ({ children }) => {
       const isCompleting = !todo.completed;
       const res = await api.put(`/todos/${id}`, {
         completed: isCompleting,
-        // NEW: Track exactly when it was completed for the heatmap
         completedAt: isCompleting ? new Date().toISOString() : null 
       });
       setTodos((prev) => prev.map((t) => (t._id === id ? res.data : t)));
@@ -100,7 +96,6 @@ export const TodoProvider = ({ children }) => {
       const res = await api.put(`/todos/${id}`, {
         archived: true,
         completed: true,
-        // NEW: Archiving counts as completion for history/heatmap
         completedAt: new Date().toISOString() 
       });
       setTodos((prev) => prev.map((t) => (t._id === id ? res.data : t)));
