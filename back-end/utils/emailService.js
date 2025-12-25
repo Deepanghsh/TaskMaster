@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import logger from '../config/logger.js';
 import { generateOTPEmailTemplate, generateOTPEmailPlainText } from './emailTemplates.js';
 
 let transporter = null;
@@ -6,16 +7,8 @@ let transporter = null;
 function initializeTransporter() {
   if (transporter) return transporter;
 
-  // Debug logging
-  console.log('🔍 Checking email config...');
-  console.log('ENABLE_EMAIL_NOTIFICATIONS:', process.env.ENABLE_EMAIL_NOTIFICATIONS);
-  console.log('Type:', typeof process.env.ENABLE_EMAIL_NOTIFICATIONS);
-  console.log('EMAIL_USER:', process.env.EMAIL_USER);
-  console.log('EMAIL_SERVICE:', process.env.EMAIL_SERVICE);
-
-  // Check if email is enabled
   if (process.env.ENABLE_EMAIL_NOTIFICATIONS !== 'true') {
-    console.warn('⚠️  Email notifications are disabled');
+    logger.warn('Email notifications are disabled');
     return null;
   }
 
@@ -24,7 +17,7 @@ function initializeTransporter() {
   const emailPassword = process.env.EMAIL_PASSWORD;
 
   if (!emailUser || !emailPassword) {
-    console.error('❌ Email credentials not found');
+    logger.error('Email credentials not found in environment variables');
     return null;
   }
 
@@ -40,10 +33,10 @@ function initializeTransporter() {
       }
     });
 
-    console.log('✅ Email transporter initialized successfully');
+    logger.info('Email transporter initialized successfully');
     return transporter;
   } catch (error) {
-    console.error('❌ Error initializing email transporter:', error);
+    logger.error(`Error initializing email transporter: ${error.message}`);
     return null;
   }
 }
@@ -53,7 +46,7 @@ export async function sendOTPEmail(recipientEmail, recipientName, otp, expiryMin
     const emailTransporter = transporter || initializeTransporter();
 
     if (!emailTransporter) {
-      console.error('❌ Email transporter not initialized');
+      logger.error('Email transporter not initialized');
       return false;
     }
 
@@ -70,18 +63,20 @@ export async function sendOTPEmail(recipientEmail, recipientName, otp, expiryMin
 
     const info = await emailTransporter.sendMail(mailOptions);
     
-    console.log(`✅ OTP email sent successfully to ${recipientEmail}`);
-    console.log(`📧 Message ID: ${info.messageId}`);
+    logger.info(`OTP email sent successfully to ${recipientEmail}`, { messageId: info.messageId });
     
     return true;
 
   } catch (error) {
-    console.error('❌ Error sending OTP email:', error);
+    logger.error(`Error sending OTP email: ${error.message}`, { 
+      code: error.code,
+      recipient: recipientEmail 
+    });
     
     if (error.code === 'EAUTH') {
-      console.error('Authentication failed. Please check your email credentials.');
+      logger.error('Authentication failed. Please check your email credentials.');
     } else if (error.code === 'ESOCKET') {
-      console.error('Network error. Please check your internet connection.');
+      logger.error('Network error. Please check your internet connection.');
     }
     
     return false;
@@ -111,7 +106,7 @@ export async function sendWelcomeEmail(recipientEmail, recipientName) {
 <body>
     <div class="container">
         <div class="header">
-            <h1>Welcome to TaskMaster! 🎉</h1>
+            <h1>Welcome to TaskMaster!</h1>
         </div>
         <div class="content">
             <h2>Hello ${recipientName}!</h2>
@@ -134,12 +129,12 @@ export async function sendWelcomeEmail(recipientEmail, recipientName) {
     };
 
     await emailTransporter.sendMail(mailOptions);
-    console.log(`✅ Welcome email sent to ${recipientEmail}`);
+    logger.info(`Welcome email sent to ${recipientEmail}`);
     
     return true;
 
   } catch (error) {
-    console.error('❌ Error sending welcome email:', error);
+    logger.error(`Error sending welcome email: ${error.message}`, { recipient: recipientEmail });
     return false;
   }
 }
@@ -153,16 +148,15 @@ export async function verifyEmailConfig() {
     }
 
     await emailTransporter.verify();
-    console.log('✅ Email configuration verified successfully');
+    logger.info('Email configuration verified successfully');
     return true;
 
   } catch (error) {
-    console.error('❌ Email configuration verification failed:', error);
+    logger.error(`Email configuration verification failed: ${error.message}`);
     return false;
   }
 }
 
-// Initialize transporter on module load
 initializeTransporter();
 
 export default {
