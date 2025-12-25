@@ -1,31 +1,40 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { useAuth } from "./useAuth";
 import api from '../services/api';
 
 export const CategoryContext = createContext(null);
 
 export const CategoryProvider = ({ children }) => {
+  const { user } = useAuth(); // Listen to auth changes
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchCategories = async () => {
     try {
+      setLoading(true);
       const res = await api.get('/categories');
       setCategories(res.data);
     } catch (err) {
       console.error("Fetch categories error:", err);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Fetch categories when user logs in/out
   useEffect(() => {
-    fetchCategories();
-  }, []);
+    if (user) {
+      fetchCategories();
+    } else {
+      setCategories([]);
+      setLoading(false);
+    }
+  }, [user]);
 
   const addCategory = async (name, color) => {
     try {
       const res = await api.post('/categories', { name, color });
-      // Add the NEW category from server (includes _id from MongoDB)
       setCategories((prev) => [...prev, res.data]);
     } catch (err) {
       console.error("Add category error:", err);
@@ -40,10 +49,7 @@ export const CategoryProvider = ({ children }) => {
     }
     
     try {
-      // Hit the backend DELETE route
       await api.delete(`/categories/${id}`);
-      
-      // Update UI immediately by filtering out the deleted category
       setCategories((prev) => prev.filter((cat) => cat._id !== id));
     } catch (err) {
       console.error("Delete category error:", err);
