@@ -12,25 +12,16 @@ export const useAuth = () => {
 
   const updateProfile = async ({ name, email, mobile, dob, gender }) => {
     setIsLoading(true);
-
     try {
-      const token = localStorage.getItem('token');
+      const res = await api.put('/auth/me', { name, email, mobile, dob, gender });
       
-      // FIXED: Remove /api prefix (api service already adds it)
-      const res = await api.put('/auth/profile', 
-        { name, email, mobile, dob, gender },
-        { headers: { 'x-auth-token': token } }
-      );
-
-      // Update local state and storage
-      const newUserData = res.data.user;
-      context.setUser(newUserData);
-      localStorage.setItem("user", JSON.stringify(newUserData));
-
+      const updatedUser = res.data.data;
+      context.setUser(updatedUser);
+      
       return { type: 'success', text: 'Profile updated successfully!' };
     } catch (error) {
       console.error('Profile update error:', error);
-      const errorMsg = error.response?.data?.msg || 'Failed to update profile.';
+      const errorMsg = error.response?.data?.message || 'Failed to update profile.';
       return { type: 'error', text: errorMsg };
     } finally {
       setIsLoading(false);
@@ -40,14 +31,8 @@ export const useAuth = () => {
   const deleteAccount = async () => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      await api.delete('/auth/me');
       
-      // FIXED: Remove /api prefix
-      await api.delete('/auth/account', {
-        headers: { 'x-auth-token': token }
-      });
-
-      // Logout and clear data
       context.logout();
       return true;
     } catch (error) {
@@ -60,24 +45,18 @@ export const useAuth = () => {
 
   const exportData = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const userRes = await api.get('/auth/me');
+      const todosRes = await api.get('/todos');
+      const categoriesRes = await api.get('/categories');
       
-      // FIXED: Remove /api prefix
-      const userRes = await api.get('/auth/export-data', {
-        headers: { 'x-auth-token': token }
-      });
-
-      // Get all todos
-      const todosRes = await api.get('/todos', {
-        headers: { 'x-auth-token': token }
-      });
-
-      // Combine data
       const exportData = {
-        ...userRes.data,
-        todos: todosRes.data
+        version: "1.0",
+        exportDate: new Date().toISOString(),
+        user: userRes.data.data || userRes.data,
+        todos: todosRes.data,
+        categories: categoriesRes.data
       };
-
+      
       return exportData;
     } catch (error) {
       console.error('Export error:', error);
@@ -88,31 +67,45 @@ export const useAuth = () => {
   const importData = async (data) => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('token');
-
-      // Import user data
-      if (data.user) {
-        // FIXED: Remove /api prefix
-        await api.post('/auth/import-data',
-          { data },
-          { headers: { 'x-auth-token': token } }
-        );
-
-        // Refresh user data
-        const userRes = await api.get('/auth/user', {
-          headers: { 'x-auth-token': token }
-        });
-
-        const updatedUser = userRes.data;
-        context.setUser(updatedUser);
-        localStorage.setItem("user", JSON.stringify(updatedUser));
-      }
-
       // Import todos if present
       if (data.todos && Array.isArray(data.todos)) {
-        console.log('Todos import:', data.todos.length, 'tasks');
+        for (const todo of data.todos) {
+          try {
+            await api.post('/todos', {
+              text: todo.text,
+              category: todo.category || 'general',
+              dueDate: todo.dueDate || '',
+              priority: todo.priority || 'Medium',
+              description: todo.description || '',
+              completed: todo.completed || false,
+              archived: todo.archived || false
+            });
+          } catch (err) {
+            console.log('Error importing todo:', todo.text, err);
+          }
+        }
       }
-
+      
+      // Import categories if present
+      if (data.categories && Array.isArray(data.categories)) {
+        for (const category of data.categories) {
+          try {
+            await api.post('/categories', {
+              name: category.name,
+              color: category.color
+            });
+          } catch (err) {
+            // Ignore duplicate category errors
+            console.log('Category already exists or error:', category.name);
+          }
+        }
+      }
+      
+      // Refresh user data
+      const userRes = await api.get('/auth/me');
+      const updatedUser = userRes.data.data || userRes.data;
+      context.setUser(updatedUser);
+      
       return { success: true };
     } catch (error) {
       console.error('Import error:', error);
