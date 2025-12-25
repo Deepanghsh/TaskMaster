@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../hooks/useAuth'; // ✅ Import useAuth
+import { useAuth } from '../hooks/useAuth';
 import { Mail, ArrowLeft, RefreshCw, ShieldCheck, XCircle, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -10,7 +10,7 @@ const API_BASE_URL = 'http://localhost:5000/api';
 
 const OTPVerification = () => {
     const { theme } = useTheme();
-    const { verifyEmail, completeLogin } = useAuth(); // ✅ Get auth methods
+    const { verifyEmail, completeLogin } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const { email, name, password, isSignup } = location.state || {};
@@ -29,7 +29,6 @@ const OTPVerification = () => {
             return;
         }
 
-        // Start countdown timer
         if (resendTimer > 0) {
             const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
             return () => clearTimeout(timer);
@@ -52,8 +51,10 @@ const OTPVerification = () => {
         setIsVerifying(true);
         setError('');
 
+        localStorage.clear();
+        sessionStorage.clear();
+
         try {
-            // Step 1: Verify OTP with backend
             const response = await fetch(`${API_BASE_URL}/otp/verify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -63,30 +64,24 @@ const OTPVerification = () => {
             const result = await response.json();
 
             if (result.success) {
-                // ✅ OTP verified successfully - now use AuthContext methods
                 if (isSignup) {
-                    // Complete email verification for signup using AuthContext
                     const verifyResult = await verifyEmail(email);
 
                     if (verifyResult.success) {
-                        // ✅ Context is updated, navigate to home
                         navigate('/', { replace: true });
                     } else {
                         setError(verifyResult.message || 'Verification failed.');
                     }
                 } else {
-                    // Complete login using AuthContext
                     const loginResult = await completeLogin(email);
 
                     if (loginResult.success) {
-                        // ✅ Context is updated, navigate to home
                         navigate('/', { replace: true });
                     } else {
                         setError(loginResult.message || 'Login failed.');
                     }
                 }
             } else {
-                // Handle verification failure
                 if (result.attemptsLeft !== undefined) {
                     setAttemptsLeft(result.attemptsLeft);
                 } else {
@@ -122,7 +117,6 @@ const OTPVerification = () => {
             const result = await response.json();
 
             if (result.success) {
-                // Reset states
                 setResendTimer(60);
                 setCanResend(false);
                 setAttemptsLeft(3);
@@ -155,7 +149,6 @@ const OTPVerification = () => {
                 : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'
         } relative overflow-hidden`}>
             
-            {/* Animated background elements */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <motion.div 
                     initial={{ scale: 0.8, opacity: 0 }}
@@ -178,7 +171,6 @@ const OTPVerification = () => {
                     transition={{ duration: 0.6 }}
                     className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20 dark:border-gray-700/20"
                 >
-                    {/* Back Button */}
                     <button
                         onClick={() => navigate(isSignup ? '/signup' : '/login')}
                         className="mb-6 flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
@@ -187,7 +179,6 @@ const OTPVerification = () => {
                         <span className="text-sm font-medium">Back</span>
                     </button>
 
-                    {/* Icon */}
                     <div className="flex justify-center mb-6">
                         <motion.div
                             initial={{ scale: 0, rotate: -180 }}
@@ -199,7 +190,6 @@ const OTPVerification = () => {
                         </motion.div>
                     </div>
 
-                    {/* Header */}
                     <div className="text-center mb-8">
                         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
                             Verify Your Email
@@ -215,7 +205,6 @@ const OTPVerification = () => {
                         </div>
                     </div>
 
-                    {/* Error Message */}
                     <AnimatePresence>
                         {error && (
                             <motion.div
@@ -230,7 +219,6 @@ const OTPVerification = () => {
                         )}
                     </AnimatePresence>
 
-                    {/* OTP Input */}
                     <div className="mb-6">
                         <OTPInput 
                             length={6} 
@@ -239,7 +227,6 @@ const OTPVerification = () => {
                         />
                     </div>
 
-                    {/* Attempts Left Indicator */}
                     {attemptsLeft < 3 && attemptsLeft > 0 && (
                         <motion.div
                             initial={{ opacity: 0 }}
@@ -250,7 +237,6 @@ const OTPVerification = () => {
                         </motion.div>
                     )}
 
-                    {/* Loading State */}
                     {isVerifying && (
                         <motion.div
                             initial={{ opacity: 0 }}
@@ -264,7 +250,6 @@ const OTPVerification = () => {
                         </motion.div>
                     )}
 
-                    {/* Resend OTP */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-center gap-2 text-sm">
                             {!canResend ? (
@@ -295,7 +280,6 @@ const OTPVerification = () => {
                     </div>
                 </motion.div>
 
-                {/* Footer */}
                 <p className="text-center mt-6 text-sm text-gray-600 dark:text-gray-400">
                     🔒 Your information is secure and encrypted
                 </p>
