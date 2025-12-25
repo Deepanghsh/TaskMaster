@@ -1,40 +1,38 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { useAuth } from "./useAuth";
 import api from "../services/api.js";
 
 const TodoContext = createContext(null);
 
 export const TodoProvider = ({ children }) => {
+  const { user } = useAuth(); // Listen to auth changes
   const [todos, setTodos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchTodos = useCallback(async () => {
     try {
+      setLoading(true);
       const res = await api.get("/todos");
       setTodos(res.data);
     } catch (err) {
       if (err.response?.status !== 401) {
         console.error("Error fetching tasks:", err);
       }
+      setTodos([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // Fetch todos when user logs in/out
   useEffect(() => {
-    const handleAuthChange = () => {
-      const token = localStorage.getItem("token");
-      if (token) {
-        setLoading(true);
-        fetchTodos();
-      } else {
-        setTodos([]);
-        setLoading(false);
-      }
-    };
-    handleAuthChange();
-    window.addEventListener("storage", handleAuthChange);
-    return () => window.removeEventListener("storage", handleAuthChange);
-  }, [fetchTodos]);
+    if (user) {
+      fetchTodos();
+    } else {
+      setTodos([]);
+      setLoading(false);
+    }
+  }, [user, fetchTodos]);
 
   const addTodo = async (text, category = "general", dueDate = "", priority = "Medium", description = "") => {
     if (!text.trim()) return;
@@ -71,7 +69,6 @@ export const TodoProvider = ({ children }) => {
       const isCompleting = !todoToToggle.completed;
       const res = await api.put(`/todos/${id}`, { 
         completed: isCompleting,
-        // ADDED: Timestamp for heatmap
         completedAt: isCompleting ? new Date().toISOString() : null 
       });
       setTodos((prev) => prev.map((todo) => (todo._id === id ? res.data : todo)));
@@ -94,7 +91,6 @@ export const TodoProvider = ({ children }) => {
       const res = await api.put(`/todos/${id}`, { 
         archived: true, 
         completed: true,
-        // ADDED: Timestamp for heatmap
         completedAt: new Date().toISOString() 
       });
       setTodos((prev) => prev.map((todo) => (todo._id === id ? res.data : todo)));
