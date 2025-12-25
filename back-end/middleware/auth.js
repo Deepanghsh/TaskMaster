@@ -1,31 +1,25 @@
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import logger from '../config/logger.js';
 
 dotenv.config();
 
 export default function (req, res, next) {
-  // Get token from header
   const token = req.header('x-auth-token');
 
-  console.log('🔍 Auth Middleware - Token received:', token ? 'Yes' : 'No');
-
-  // Check if no token
   if (!token) {
+    logger.warn('Authentication failed: No token provided');
     return res.status(401).json({ msg: 'No token, authorization denied' });
   }
 
-  // Verify token
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('✅ Token decoded:', decoded);
+    req.user = { id: decoded.id };
     
-    // FIX: The token has { id: '...' } directly, not { user: { id: '...' } }
-    req.user = { id: decoded.id }; // ✅ Changed this line
-    
-    console.log('👤 req.user set to:', req.user);
+    logger.debug(`User authenticated: ${decoded.id}`);
     next();
   } catch (err) {
-    console.error('❌ Token verification failed:', err.message);
+    logger.error(`Token verification failed: ${err.message}`);
     res.status(401).json({ msg: 'Token is not valid' });
   }
 }
