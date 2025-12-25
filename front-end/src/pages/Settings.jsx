@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme'; 
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Zap, XOctagon, Database, Download, Upload, AlertTriangle, Check, X } from 'lucide-react'; 
+import { User, Zap, XOctagon, Database, Download, Upload, AlertTriangle, Check, X, Phone } from 'lucide-react'; 
 
 const SettingsTabContent = ({ title, description, children, icon: Icon }) => (
     <motion.div 
@@ -22,26 +22,149 @@ const SettingsTabContent = ({ title, description, children, icon: Icon }) => (
     </motion.div>
 );
 
+// Country codes data
+const countryCodes = [
+    { code: '+91', country: 'India', flag: '🇮🇳', maxLength: 10 },
+    { code: '+1', country: 'USA/Canada', flag: '🇺🇸', maxLength: 10 },
+    { code: '+44', country: 'UK', flag: '🇬🇧', maxLength: 10 },
+    { code: '+61', country: 'Australia', flag: '🇦🇺', maxLength: 9 },
+    { code: '+86', country: 'China', flag: '🇨🇳', maxLength: 11 },
+    { code: '+81', country: 'Japan', flag: '🇯🇵', maxLength: 10 },
+    { code: '+49', country: 'Germany', flag: '🇩🇪', maxLength: 11 },
+    { code: '+33', country: 'France', flag: '🇫🇷', maxLength: 9 },
+    { code: '+971', country: 'UAE', flag: '🇦🇪', maxLength: 9 },
+    { code: '+65', country: 'Singapore', flag: '🇸🇬', maxLength: 8 },
+];
+
 const Settings = () => {
     const { user, updateProfile, deleteAccount, exportData, importData, isLoading } = useAuth();
     const { theme, toggleTheme } = useTheme(); 
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('account');
 
+    // Parse existing mobile number if it exists
+    const parseExistingMobile = (mobile) => {
+        if (!mobile) return { countryCode: '+91', number: '' };
+        
+        // Find matching country code
+        for (const country of countryCodes) {
+            if (mobile.startsWith(country.code)) {
+                return {
+                    countryCode: country.code,
+                    number: mobile.slice(country.code.length)
+                };
+            }
+        }
+        
+        // Default to India if no match
+        return { countryCode: '+91', number: mobile };
+    };
+
+    const existingMobile = parseExistingMobile(user?.mobile);
+
     const [name, setName] = useState(user?.name || '');
     const [email, setEmail] = useState(user?.email || '');
-    const [mobile, setMobile] = useState(user?.mobile || ''); 
+    const [countryCode, setCountryCode] = useState(existingMobile.countryCode);
+    const [mobileNumber, setMobileNumber] = useState(existingMobile.number);
     const [dob, setDob] = useState(user?.dob || '');         
     const [gender, setGender] = useState(user?.gender || ''); 
     const [profileMessage, setProfileMessage] = useState(null);
+    const [validationErrors, setValidationErrors] = useState({});
 
     // Confirmation states
     const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+    // Validation functions
+    const validateEmail = (email) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
+
+    const validateMobile = (number, countryCode) => {
+        if (!number) return true; // Optional field
+        
+        // Get max length for selected country
+        const country = countryCodes.find(c => c.code === countryCode);
+        const maxLength = country?.maxLength || 10;
+        
+        // Only digits allowed
+        const digitRegex = /^\d+$/;
+        if (!digitRegex.test(number)) {
+            return false;
+        }
+        
+        // Check length
+        if (number.length < 8 || number.length > maxLength) {
+            return false;
+        }
+        
+        return true;
+    };
+
+    const validateName = (name) => {
+        return name.trim().length >= 2;
+    };
+
+    const handleMobileChange = (e) => {
+        const value = e.target.value;
+        // Only allow digits
+        const digitsOnly = value.replace(/\D/g, '');
+        
+        // Get max length for selected country
+        const country = countryCodes.find(c => c.code === countryCode);
+        const maxLength = country?.maxLength || 10;
+        
+        // Limit to max length
+        const limited = digitsOnly.slice(0, maxLength);
+        setMobileNumber(limited);
+        
+        // Clear mobile error when typing
+        if (validationErrors.mobile) {
+            setValidationErrors(prev => ({ ...prev, mobile: null }));
+        }
+    };
+
+    const handleNameChange = (e) => {
+        setName(e.target.value);
+        if (validationErrors.name) {
+            setValidationErrors(prev => ({ ...prev, name: null }));
+        }
+    };
+
+    const handleEmailChange = (e) => {
+        setEmail(e.target.value);
+        if (validationErrors.email) {
+            setValidationErrors(prev => ({ ...prev, email: null }));
+        }
+    };
+
     const handleProfileUpdate = async (e) => {
         e.preventDefault();
         setProfileMessage(null);
+        setValidationErrors({});
+
+        // Validate all fields
+        const errors = {};
+
+        if (!validateName(name)) {
+            errors.name = 'Name must be at least 2 characters';
+        }
+
+        if (!validateEmail(email)) {
+            errors.email = 'Please enter a valid email address';
+        }
+
+        if (mobileNumber && !validateMobile(mobileNumber, countryCode)) {
+            const country = countryCodes.find(c => c.code === countryCode);
+            errors.mobile = `Please enter a valid ${country?.country || ''} mobile number (${country?.maxLength || 10} digits)`;
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setValidationErrors(errors);
+            setProfileMessage({ type: 'error', text: 'Please fix validation errors' });
+            return;
+        }
 
         // Show inline confirmation
         if (!showUpdateConfirm) {
@@ -49,8 +172,18 @@ const Settings = () => {
             return;
         }
 
+        // Combine country code and mobile number
+        const fullMobile = mobileNumber ? `${countryCode}${mobileNumber}` : '';
+
         // Proceed with update
-        const result = await updateProfile({ name, email, mobile, dob, gender });
+        const result = await updateProfile({ 
+            name, 
+            email, 
+            mobile: fullMobile, 
+            dob, 
+            gender 
+        });
+        
         setProfileMessage(result);
         setShowUpdateConfirm(false);
 
@@ -62,10 +195,13 @@ const Settings = () => {
 
     const cancelProfileUpdate = () => {
         setShowUpdateConfirm(false);
+        setValidationErrors({});
         // Reset form to original values
+        const existingMobile = parseExistingMobile(user?.mobile);
         setName(user?.name || '');
         setEmail(user?.email || '');
-        setMobile(user?.mobile || '');
+        setCountryCode(existingMobile.countryCode);
+        setMobileNumber(existingMobile.number);
         setDob(user?.dob || '');
         setGender(user?.gender || '');
     };
@@ -131,9 +267,11 @@ const Settings = () => {
             if (result?.success) {
                 setProfileMessage({ type: 'success', text: 'Data imported successfully!' });
                 // Update form fields with imported data
+                const existingMobile = parseExistingMobile(user?.mobile);
                 setName(user?.name || '');
                 setEmail(user?.email || '');
-                setMobile(user?.mobile || '');
+                setCountryCode(existingMobile.countryCode);
+                setMobileNumber(existingMobile.number);
                 setDob(user?.dob || '');
                 setGender(user?.gender || '');
             } else {
@@ -182,38 +320,97 @@ const Settings = () => {
                                 <SettingsTabContent title="Profile Settings" icon={User} description="Update your personal details and contact information.">
                                     <form onSubmit={handleProfileUpdate} className="space-y-6">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {/* Name Field */}
                                             <div className="space-y-2">
-                                                <label className="text-xs font-black uppercase tracking-widest text-gray-400 ml-1">Full Name</label>
+                                                <label className="text-xs font-black uppercase tracking-widest text-gray-400 ml-1">
+                                                    Full Name <span className="text-red-500">*</span>
+                                                </label>
                                                 <input 
                                                     type="text" 
                                                     value={name} 
-                                                    onChange={(e) => setName(e.target.value)} 
+                                                    onChange={handleNameChange}
                                                     required
                                                     disabled={showUpdateConfirm}
-                                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900/50 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed" 
+                                                    className={`w-full px-4 py-2.5 rounded-xl border ${
+                                                        validationErrors.name 
+                                                            ? 'border-red-500 focus:ring-red-500' 
+                                                            : 'border-gray-200 dark:border-gray-700 focus:ring-indigo-500'
+                                                    } dark:bg-gray-900/50 dark:text-white focus:ring-2 outline-none disabled:opacity-50 disabled:cursor-not-allowed`}
                                                 />
+                                                {validationErrors.name && (
+                                                    <p className="text-xs text-red-500 mt-1">{validationErrors.name}</p>
+                                                )}
                                             </div>
+
+                                            {/* Email Field */}
                                             <div className="space-y-2">
-                                                <label className="text-xs font-black uppercase tracking-widest text-gray-400 ml-1">Email</label>
+                                                <label className="text-xs font-black uppercase tracking-widest text-gray-400 ml-1">
+                                                    Email <span className="text-red-500">*</span>
+                                                </label>
                                                 <input 
                                                     type="email" 
                                                     value={email} 
-                                                    onChange={(e) => setEmail(e.target.value)} 
+                                                    onChange={handleEmailChange}
                                                     required
                                                     disabled={showUpdateConfirm}
-                                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900/50 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed" 
+                                                    className={`w-full px-4 py-2.5 rounded-xl border ${
+                                                        validationErrors.email 
+                                                            ? 'border-red-500 focus:ring-red-500' 
+                                                            : 'border-gray-200 dark:border-gray-700 focus:ring-indigo-500'
+                                                    } dark:bg-gray-900/50 dark:text-white focus:ring-2 outline-none disabled:opacity-50 disabled:cursor-not-allowed`}
                                                 />
+                                                {validationErrors.email && (
+                                                    <p className="text-xs text-red-500 mt-1">{validationErrors.email}</p>
+                                                )}
                                             </div>
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-black uppercase tracking-widest text-gray-400 ml-1">Mobile</label>
-                                                <input 
-                                                    type="tel" 
-                                                    value={mobile} 
-                                                    onChange={(e) => setMobile(e.target.value)} 
-                                                    disabled={showUpdateConfirm}
-                                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900/50 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed" 
-                                                />
+
+                                            {/* Mobile Field with Country Code */}
+                                            <div className="space-y-2 md:col-span-2">
+                                                <label className="text-xs font-black uppercase tracking-widest text-gray-400 ml-1 flex items-center gap-2">
+                                                    <Phone size={14} />
+                                                    Mobile Number
+                                                </label>
+                                                <div className="flex gap-2">
+                                                    {/* Country Code Selector */}
+                                                    <select 
+                                                        value={countryCode}
+                                                        onChange={(e) => {
+                                                            setCountryCode(e.target.value);
+                                                            setMobileNumber(''); // Clear number when country changes
+                                                        }}
+                                                        disabled={showUpdateConfirm}
+                                                        className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900/50 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed w-40"
+                                                    >
+                                                        {countryCodes.map((country) => (
+                                                            <option key={country.code} value={country.code}>
+                                                                {country.flag} {country.code}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+
+                                                    {/* Phone Number Input */}
+                                                    <input 
+                                                        type="tel" 
+                                                        value={mobileNumber} 
+                                                        onChange={handleMobileChange}
+                                                        placeholder={`Enter ${countryCodes.find(c => c.code === countryCode)?.maxLength || 10} digits`}
+                                                        disabled={showUpdateConfirm}
+                                                        className={`flex-1 px-4 py-2.5 rounded-xl border ${
+                                                            validationErrors.mobile 
+                                                                ? 'border-red-500 focus:ring-red-500' 
+                                                                : 'border-gray-200 dark:border-gray-700 focus:ring-indigo-500'
+                                                        } dark:bg-gray-900/50 dark:text-white focus:ring-2 outline-none disabled:opacity-50 disabled:cursor-not-allowed`}
+                                                    />
+                                                </div>
+                                                {validationErrors.mobile && (
+                                                    <p className="text-xs text-red-500 mt-1">{validationErrors.mobile}</p>
+                                                )}
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                    Format: {countryCode}{mobileNumber || ''.padEnd(countryCodes.find(c => c.code === countryCode)?.maxLength || 10, 'X')}
+                                                </p>
                                             </div>
+
+                                            {/* Birthday Field */}
                                             <div className="space-y-2">
                                                 <label className="text-xs font-black uppercase tracking-widest text-gray-400 ml-1">Birthday</label>
                                                 <input 
@@ -221,10 +418,13 @@ const Settings = () => {
                                                     value={dob} 
                                                     onChange={(e) => setDob(e.target.value)} 
                                                     disabled={showUpdateConfirm}
+                                                    max={new Date().toISOString().split('T')[0]} // Can't select future dates
                                                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900/50 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed" 
                                                 />
                                             </div>
-                                            <div className="space-y-2 md:col-span-2">
+
+                                            {/* Gender Field */}
+                                            <div className="space-y-2">
                                                 <label className="text-xs font-black uppercase tracking-widest text-gray-400 ml-1">Gender</label>
                                                 <select 
                                                     value={gender} 
