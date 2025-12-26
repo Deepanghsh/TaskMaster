@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, Link } from 'react-router-dom';
 import { Home, ListChecks, TrendingUp, Archive, Settings, LogOut, Menu, X, Sun, Moon, CalendarDays, Clock } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
+import NotificationCenter from '../components/NotificationCenter';
 import { motion } from 'framer-motion';
 
 const NavItem = ({ to, icon: Icon, name, onLinkClick }) => (
@@ -26,9 +27,33 @@ export default function MainLayout() {
     const { logout, user } = useAuth();
     const { theme, toggleTheme } = useTheme(); 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [currentTime, setCurrentTime] = useState(new Date());
 
     const userName = user?.name || "User"; 
     const profileInitial = userName[0].toUpperCase();
+
+    // Update time every second
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, []);
+
+    // Format date and time
+    const formatDate = () => {
+        const options = { weekday: 'short', month: 'short', day: 'numeric' };
+        return currentTime.toLocaleDateString('en-US', options);
+    };
+
+    const formatTime = () => {
+        return currentTime.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+        });
+    };
 
     const navItems = [
         { name: 'Dashboard', path: '/', icon: Home },
@@ -41,13 +66,11 @@ export default function MainLayout() {
     ];
 
     return (
-        // CRITICAL: Main Background Class (Default: light, Dark: dark)
         <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors w-full"> 
             
             {/* --- 1. Desktop Sidebar --- */}
             <aside className={`fixed md:sticky top-0 left-0 h-screen w-64 p-4 z-30 transition-transform duration-300 ease-in-out
                              ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0 md:shadow-none'}
-                             // CRITICAL: Sidebar Background Class
                              bg-white dark:bg-gray-800 border-r border-gray-100 dark:border-gray-700`}>
                 
                 <div className="flex items-center justify-between h-16 mb-6">
@@ -72,7 +95,6 @@ export default function MainLayout() {
                 </nav>
 
                 {/* Profile/Logout Section */}
-                {/* CRITICAL: Profile Box Background Class */}
                 <div className="absolute bottom-4 left-4 right-4 p-4 bg-gray-200 dark:bg-gray-700 rounded-xl space-y-3">
                     <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-lg">
@@ -107,18 +129,50 @@ export default function MainLayout() {
             {/* --- 2. Main Content Area --- */}
             <main className="flex-1 flex flex-col overflow-x-hidden">
                 {/* Header (Top Bar) */}
-                {/* CRITICAL: Header Background Class */}
                 <header className="sticky top-0 z-10 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-100 dark:border-gray-700 h-16 flex items-center justify-between px-4 md:px-6">
                     <button className="md:hidden p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white" onClick={() => setIsSidebarOpen(true)}>
                         <Menu className="w-6 h-6" />
                     </button>
                     
-                    <button
-                        onClick={toggleTheme}
-                        className="p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                        {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-                    </button>
+                    {/* Date & Time Display - Hidden on mobile, shown on tablet+ */}
+                    <div className="hidden sm:flex items-center gap-3 text-gray-700 dark:text-gray-300">
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
+                            <CalendarDays className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                            <span className="text-sm font-medium">{formatDate()}</span>
+                        </div>
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
+                            <Clock className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                            <span className="text-sm font-medium">{formatTime()}</span>
+                        </div>
+                    </div>
+
+                    {/* Right side controls */}
+                    <div className="flex items-center gap-2 ml-auto">
+                        {/* Notification Bell with label - matching theme toggle pattern */}
+                        <NotificationCenter />
+                        
+                        {/* Theme Toggle with label */}
+                        <button
+                            onClick={toggleTheme}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all group shadow-sm ${
+                                theme === 'light' 
+                                    ? 'bg-purple-100 dark:bg-purple-500/20 hover:bg-purple-200 dark:hover:bg-purple-500/30' 
+                                    : 'bg-orange-100 dark:bg-orange-500/20 hover:bg-orange-200 dark:hover:bg-orange-500/30'
+                            }`}
+                        >
+                            {theme === 'light' ? (
+                                <>
+                                    <Moon className="w-5 h-5 text-purple-700 dark:text-purple-300 group-hover:text-purple-800 dark:group-hover:text-purple-200 transition-colors" />
+                                    <span className="hidden lg:inline text-sm font-semibold text-purple-800 dark:text-purple-200">Dark Mode</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Sun className="w-5 h-5 text-orange-600 dark:text-orange-300 group-hover:text-orange-700 dark:group-hover:text-orange-200 transition-colors" />
+                                    <span className="hidden lg:inline text-sm font-semibold text-orange-700 dark:text-orange-200">Light Mode</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
                 </header>
 
                 <div className="p-4 md:p-8 flex-1">

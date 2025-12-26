@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth.jsx";
+import { NotificationProvider } from "./hooks/useNotifications.jsx";
 import MainLayout from "./layouts/MainLayout.jsx";
 
 import Login from "./pages/Login.jsx";
@@ -13,6 +14,7 @@ import Categories from "./pages/Categories.jsx";
 import Analysis from "./pages/Analysis.jsx";
 import Archived from "./pages/Archived.jsx";
 import Settings from "./pages/Settings.jsx";
+import NotificationSettings from "./pages/NotificationSettings.jsx";
 import NotFound from "./pages/NotFound.jsx";
 
 function ProtectedRoute({ children }) {
@@ -36,6 +38,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      {/* Wrap NotificationProvider inside BrowserRouter and only around protected routes */}
       <Routes>
         <Route 
           path="/login" 
@@ -50,14 +53,22 @@ export default function App() {
           element={user ? <Navigate to="/" replace /> : <OTPVerification />} 
         />
 
-        <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-            <Route path="/" element={<Home />} />
-            <Route path="/upcoming" element={<Upcoming />} /> 
-            <Route path="/calendar" element={<CalendarPage />} />
-            <Route path="/categories" element={<Categories />} />
-            <Route path="/analysis" element={<Analysis />} />
-            <Route path="/archived" element={<Archived />} />
-            <Route path="/settings" element={<Settings />} />
+        {/* Protected Routes with NotificationProvider */}
+        <Route element={
+          <ProtectedRoute>
+            <NotificationProvider>
+              <MainLayout />
+            </NotificationProvider>
+          </ProtectedRoute>
+        }>
+          <Route path="/" element={<Home />} />
+          <Route path="/upcoming" element={<Upcoming />} /> 
+          <Route path="/calendar" element={<CalendarPage />} />
+          <Route path="/categories" element={<Categories />} />
+          <Route path="/analysis" element={<Analysis />} />
+          <Route path="/archived" element={<Archived />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/notification-settings" element={<NotificationSettings />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />
