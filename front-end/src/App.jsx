@@ -9,6 +9,7 @@ import SignUp from "./pages/SignUp.jsx";
 import OTPVerification from "./pages/OTPVerification.jsx";
 import Home from "./pages/Home.jsx";
 import Upcoming from "./pages/Upcoming.jsx"; 
+import CompletedTasks from "./pages/CompletedTasks.jsx"; // ✅ ADDED
 import CalendarPage from "./pages/Calendar.jsx";
 import Categories from "./pages/Categories.jsx";
 import Analysis from "./pages/Analysis.jsx";
@@ -63,6 +64,7 @@ export default function App() {
         }>
           <Route path="/" element={<Home />} />
           <Route path="/upcoming" element={<Upcoming />} /> 
+          <Route path="/completed" element={<CompletedTasks />} /> {/* ✅ ADDED */}
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/analysis" element={<Analysis />} />
