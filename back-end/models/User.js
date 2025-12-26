@@ -31,7 +31,6 @@ const userSchema = new mongoose.Schema({
   verifiedAt: {
     type: Date
   },
-  // NEW FIELDS FOR SETTINGS PAGE
   mobile: {
     type: String,
     trim: true,
@@ -46,7 +45,18 @@ const userSchema = new mongoose.Schema({
     enum: ['male', 'female', 'other', 'prefer-not-to-say', ''],
     default: ''
   },
-  // END NEW FIELDS
+  notificationSettings: {
+    type: Object,
+    default: {
+      enabled: true,
+      browserNotifications: false,
+      soundEnabled: true,
+      dueTodayTime: '09:00',
+      oneHourBefore: true,
+      overdueDaily: true,
+      overdueTime: '00:00'
+    }
+  },
   resetPasswordToken: String,
   resetPasswordExpire: Date,
   createdAt: {
@@ -58,10 +68,7 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-// CRITICAL FIX: Only hash password if it was actually modified
-// This prevents re-hashing when updating other fields like lastLogin
 userSchema.pre('save', async function() {
-  // Skip if password hasn't been modified
   if (!this.isModified('password')) {
     return;
   }
@@ -76,7 +83,6 @@ userSchema.pre('save', async function() {
   }
 });
 
-// Method to compare passwords
 userSchema.methods.matchPassword = async function(enteredPassword) {
   try {
     console.log('Comparing passwords...');

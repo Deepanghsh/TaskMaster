@@ -477,4 +477,92 @@ router.delete('/me', async (req, res) => {
   }
 });
 
+// ✅ NEW ROUTES FOR NOTIFICATION SETTINGS
+
+router.get('/notification-settings', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '') || req.headers['x-auth-token'];
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'No token provided'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const settings = user.notificationSettings || {
+      enabled: true,
+      browserNotifications: false,
+      soundEnabled: true,
+      dueTodayTime: '09:00',
+      oneHourBefore: true,
+      overdueDaily: true,
+      overdueTime: '00:00'
+    };
+
+    res.json(settings);
+
+  } catch (error) {
+    logger.error(`Get notification settings error: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+router.put('/notification-settings', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '') || req.headers['x-auth-token'];
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'No token provided'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    user.notificationSettings = {
+      ...user.notificationSettings,
+      ...req.body
+    };
+
+    await user.save();
+
+    logger.info(`Notification settings updated for: ${user.email}`);
+
+    res.json({
+      success: true,
+      message: 'Settings updated successfully'
+    });
+
+  } catch (error) {
+    logger.error(`Update notification settings error: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
 export default router;
