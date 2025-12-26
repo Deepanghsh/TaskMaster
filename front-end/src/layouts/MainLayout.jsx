@@ -4,7 +4,6 @@ import { Home, ListChecks, TrendingUp, Archive, Settings, LogOut, Menu, X, Sun, 
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import NotificationCenter from '../components/NotificationCenter';
-import ToastContainer from '../components/ToastContainer'; // ✅ NEW
 import { motion } from 'framer-motion';
 
 const NavItem = ({ to, icon: Icon, name, onLinkClick }) => (
@@ -69,9 +68,6 @@ export default function MainLayout() {
 
     return (
         <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors w-full"> 
-            
-            {/* Toast Notifications - WhatsApp Style */}
-            <ToastContainer /> {/* ✅ NEW */}
             
             {/* --- 1. Desktop Sidebar --- */}
             <aside className={`fixed md:sticky top-0 left-0 h-screen w-64 p-4 z-30 transition-transform duration-300 ease-in-out
@@ -153,10 +149,10 @@ export default function MainLayout() {
 
                     {/* Right side controls */}
                     <div className="flex items-center gap-2 ml-auto">
-                        {/* Notification Bell with label - matching theme toggle pattern */}
+                        {/* Notification Bell */}
                         <NotificationCenter />
                         
-                        {/* Theme Toggle with label */}
+                        {/* Theme Toggle */}
                         <button
                             onClick={toggleTheme}
                             className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all group shadow-sm ${
