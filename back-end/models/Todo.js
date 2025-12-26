@@ -3,14 +3,13 @@ import mongoose from 'mongoose';
 const TodoSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'user', // References the User model
+    ref: 'user',
     required: true
   },
   text: {
     type: String,
     required: true
   },
-  // NEW: Description is now stored in the database
   description: {
     type: String,
     default: ""
@@ -31,6 +30,10 @@ const TodoSchema = new mongoose.Schema({
   completed: {
     type: Boolean,
     default: false
+  },
+  completedAt: {
+    type: Date,
+    default: null
   },
   archived: {
     type: Boolean,
