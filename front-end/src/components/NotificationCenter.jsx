@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Bell, X, Check, AlertCircle, Clock, Calendar, Trash2 } from "lucide-react";
+import { Bell, X, Check, AlertCircle, Clock, Calendar, Trash2, Settings } from "lucide-react";
 import { useNotifications } from "../hooks/useNotifications";
 import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
@@ -83,6 +83,11 @@ export default function NotificationCenter() {
     deleteNotification(notificationId);
   };
 
+  const handleSettingsClick = () => {
+    setIsOpen(false);
+    navigate('/notification-settings');
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Notification Bell Button */}
@@ -131,25 +136,36 @@ export default function NotificationCenter() {
                   )}
                 </div>
                 
-                {notifications.length > 0 && (
-                  <div className="flex gap-2">
-                    {unreadCount > 0 && (
+                <div className="flex gap-2">
+                  {/* ✅ Settings Button - NEW */}
+                  <button
+                    onClick={handleSettingsClick}
+                    className="p-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-lg transition-colors"
+                    title="Notification Settings"
+                  >
+                    <Settings className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  </button>
+
+                  {notifications.length > 0 && (
+                    <>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllAsRead}
+                          className="text-xs px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900/60 font-medium transition-colors flex items-center gap-1"
+                        >
+                          <Check className="w-3 h-3" />
+                          Mark all read
+                        </button>
+                      )}
                       <button
-                        onClick={markAllAsRead}
-                        className="text-xs px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-900/60 font-medium transition-colors flex items-center gap-1"
+                        onClick={clearAll}
+                        className="text-xs px-3 py-1.5 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/60 font-medium transition-colors"
                       >
-                        <Check className="w-3 h-3" />
-                        Mark all read
+                        Clear all
                       </button>
-                    )}
-                    <button
-                      onClick={clearAll}
-                      className="text-xs px-3 py-1.5 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/60 font-medium transition-colors"
-                    >
-                      Clear all
-                    </button>
-                  </div>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
