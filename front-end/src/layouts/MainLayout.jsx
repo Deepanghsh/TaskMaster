@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, Link } from 'react-router-dom';
-import { Home, ListChecks, TrendingUp, Archive, Settings, LogOut, Menu, X, Sun, Moon, CalendarDays, Clock } from 'lucide-react';
+import { Home, ListChecks, TrendingUp, Archive, Settings, LogOut, Menu, X, Sun, Moon, CalendarDays, Clock, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import NotificationCenter from '../components/NotificationCenter';
+import ToastContainer from '../components/ToastContainer'; // ✅ NEW
 import { motion } from 'framer-motion';
 
 const NavItem = ({ to, icon: Icon, name, onLinkClick }) => (
@@ -43,7 +44,7 @@ export default function MainLayout() {
 
     // Format date and time
     const formatDate = () => {
-        const options = { weekday: 'short', month: 'short', day: 'numeric' };
+        const options = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
         return currentTime.toLocaleDateString('en-US', options);
     };
 
@@ -57,7 +58,8 @@ export default function MainLayout() {
 
     const navItems = [
         { name: 'Dashboard', path: '/', icon: Home },
-        { name: 'Upcoming', path: '/upcoming', icon: Clock }, 
+        { name: 'Upcoming', path: '/upcoming', icon: Clock },
+        { name: 'Completed', path: '/completed', icon: CheckCircle2 },
         { name: 'Calendar', path: '/calendar', icon: CalendarDays }, 
         { name: 'Categories', path: '/categories', icon: ListChecks },
         { name: 'Analysis', path: '/analysis', icon: TrendingUp },
@@ -67,6 +69,9 @@ export default function MainLayout() {
 
     return (
         <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors w-full"> 
+            
+            {/* Toast Notifications - WhatsApp Style */}
+            <ToastContainer /> {/* ✅ NEW */}
             
             {/* --- 1. Desktop Sidebar --- */}
             <aside className={`fixed md:sticky top-0 left-0 h-screen w-64 p-4 z-30 transition-transform duration-300 ease-in-out
