@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { useNotifications } from '../contexts/NotificationContext';
+import { useNotifications } from '../hooks/useNotifications'; // ✅ ADDED THIS IMPORT
 import { useTheme } from '../hooks/useTheme';
 import { Bell, Volume2, VolumeX, Clock, AlertCircle, CheckCircle, ArrowLeft, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
 const NotificationSettings = () => {
-  const { settings, updateSettings, requestNotificationPermission } = useNotifications();
+  const { settings, updateSettings, requestNotificationPermission } = useNotifications(); // ✅ NOW IT WORKS
   const { theme } = useTheme();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
@@ -224,7 +224,7 @@ const NotificationSettings = () => {
                 </div>
               </div>
 
-              {/* One Day Before - NEW & HIGHLIGHTED */}
+              {/* One Day Before */}
               <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl hover:shadow-md transition-shadow border-2 border-blue-200 dark:border-blue-700">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
@@ -385,7 +385,7 @@ const NotificationSettings = () => {
                 <li>• Browser notifications work even when the app is closed</li>
                 <li>• You must allow notifications in your browser settings</li>
                 <li>• Notification priority determines notification behavior</li>
-                <li>• All settings sync across devices</li>
+                <li>• All settings are saved in your browser (localStorage)</li>
                 <li className="font-semibold">• 🎉 NEW: Get reminded 1 day before tasks are due!</li>
               </ul>
             </div>
