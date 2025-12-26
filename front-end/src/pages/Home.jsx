@@ -1,7 +1,6 @@
 import React from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useTodos } from "../hooks/useTodos";
-import { useTheme } from "../hooks/useTheme";
 import { isTaskOverdue, getDaysOverdue } from "../utils/notificationUtils";
 import moment from "moment";
 
@@ -15,9 +14,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, Calendar } from "lucide-react";
 
 // --- Helper Component: TodoList with 2-Column Grid Layout ---
-const TodoList = ({ filter, search, categoryFilter }) => {
+const TodoList = ({ filter, search, categoryFilter, dueDateFilter }) => {
   const { todos } = useTodos();
-  const activeTodos = todos.filter(t => !t.archived);
+
+  // Filter based on completion status
+  let activeTodos;
+  if (filter === "completed") {
+    // Show completed tasks when "Completed" filter is active
+    activeTodos = todos.filter(t => t.completed && !t.archived);
+  } else {
+    // Show only active (not completed, not archived) tasks for "All" and "Active"
+    activeTodos = todos.filter(t => !t.archived && !t.completed);
+  }
 
   const filteredTodos = activeTodos
     .filter(todo => {
@@ -32,7 +40,39 @@ const TodoList = ({ filter, search, categoryFilter }) => {
       if (filter === "active") matchesFilter = !todo.completed;
       if (filter === "completed") matchesFilter = todo.completed;
 
-      return matchesSearch && matchesCategory && matchesFilter;
+      // Due date filter
+      let matchesDueDate = true;
+      if (dueDateFilter !== "all") {
+        const today = moment().startOf('day');
+        const tomorrow = moment().add(1, 'day').startOf('day');
+        const weekEnd = moment().endOf('week');
+        const monthEnd = moment().endOf('month');
+
+        switch (dueDateFilter) {
+          case "overdue":
+            matchesDueDate = isTaskOverdue(todo);
+            break;
+          case "today":
+            matchesDueDate = todo.dueDate && moment(todo.dueDate).isSame(today, 'day');
+            break;
+          case "tomorrow":
+            matchesDueDate = todo.dueDate && moment(todo.dueDate).isSame(tomorrow, 'day');
+            break;
+          case "week":
+            matchesDueDate = todo.dueDate && moment(todo.dueDate).isBetween(today, weekEnd, null, '[]');
+            break;
+          case "month":
+            matchesDueDate = todo.dueDate && moment(todo.dueDate).isBetween(today, monthEnd, null, '[]');
+            break;
+          case "no-date":
+            matchesDueDate = !todo.dueDate;
+            break;
+          default:
+            matchesDueDate = true;
+        }
+      }
+
+      return matchesSearch && matchesCategory && matchesFilter && matchesDueDate;
     })
     .sort((a, b) => {
       // Sort: Overdue tasks first, then by due date, then by priority
@@ -102,8 +142,8 @@ const TodoList = ({ filter, search, categoryFilter }) => {
 
   return (
     <div className="space-y-8 pt-2">
-      {/* Overdue Warning Banner */}
-      {overdueCount > 0 && (
+      {/* Overdue Warning Banner - Only show for active tasks */}
+      {overdueCount > 0 && filter !== "completed" && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -163,8 +203,8 @@ const TodoList = ({ filter, search, categoryFilter }) => {
                     exit={{ opacity: 0, scale: 0.95 }}
                     className="relative h-full"
                   >
-                    {/* Overdue Badge */}
-                    {overdue && (
+                    {/* Overdue Badge - Only show for active tasks */}
+                    {overdue && filter !== "completed" && (
                       <div className="absolute -top-2 -right-2 z-10">
                         <div className="bg-red-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg flex items-center gap-1 animate-pulse">
                           <span>🔴</span>
@@ -173,8 +213,8 @@ const TodoList = ({ filter, search, categoryFilter }) => {
                       </div>
                     )}
                     
-                    {/* Todo Item with red border if overdue */}
-                    <div className={`h-full ${overdue ? 'ring-2 ring-red-500 ring-offset-2 dark:ring-offset-gray-900 rounded-xl' : ''}`}>
+                    {/* Todo Item with red border if overdue and not completed */}
+                    <div className={`h-full ${overdue && filter !== "completed" ? 'ring-2 ring-red-500 ring-offset-2 dark:ring-offset-gray-900 rounded-xl' : ''}`}>
                       <TodoItem todo={todo} />
                     </div>
                   </motion.div>
@@ -188,7 +228,10 @@ const TodoList = ({ filter, search, categoryFilter }) => {
       {filteredTodos.length === 0 && (
         <div className="text-center py-12">
           <p className="text-gray-400 dark:text-gray-500 text-sm">
-            No tasks found. Add one to get started! 🚀
+            {filter === "completed" 
+              ? "No completed tasks yet. Complete some tasks to see them here! 🎉" 
+              : "No tasks found. Add one to get started! 🚀"
+            }
           </p>
         </div>
       )}
@@ -203,9 +246,10 @@ export default function Home() {
   const [filter, setFilter] = React.useState("all");
   const [search, setSearch] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState("all");
+  const [dueDateFilter, setDueDateFilter] = React.useState("all");
 
-  // Count overdue tasks
-  const overdueCount = todos.filter(t => isTaskOverdue(t) && !t.archived).length;
+  // Count overdue tasks (excluding completed)
+  const overdueCount = todos.filter(t => isTaskOverdue(t) && !t.archived && !t.completed).length;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 p-4">
@@ -215,7 +259,7 @@ export default function Home() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             Hello, {user?.name || "User"} 👋
           </h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
             Let's get some work done today.
           </p>
         </div>
@@ -234,20 +278,20 @@ export default function Home() {
         )}
       </div>
 
-      {/* TOP SECTION */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT SIDE: Progress + Analytics */}
-        <div className="lg:col-span-8 space-y-6">
+      {/* TOP SECTION - Fixed Grid Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* LEFT SIDE: Progress + Analytics (2/3 width) */}
+        <div className="lg:col-span-2 space-y-6">
           <ProgressBar />
 
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
             <AnalyticsChart />
           </div>
         </div>
 
-        {/* RIGHT SIDE: Quick Add */}
-        <div className="lg:col-span-4 lg:self-start lg:-mt-16">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 h-full">
+        {/* RIGHT SIDE: Quick Add (1/3 width) */}
+        <div className="lg:col-span-1">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 sticky top-4">
             <h3 className="text-lg font-bold text-indigo-600 dark:text-indigo-400 mb-4">
               Quick Add
             </h3>
@@ -271,6 +315,8 @@ export default function Home() {
               setSearch={setSearch}
               categoryFilter={categoryFilter}
               setCategoryFilter={setCategoryFilter}
+              dueDateFilter={dueDateFilter}
+              setDueDateFilter={setDueDateFilter}
             />
           </div>
         </div>
@@ -280,6 +326,7 @@ export default function Home() {
             filter={filter}
             search={search}
             categoryFilter={categoryFilter}
+            dueDateFilter={dueDateFilter}
           />
         </div>
       </div>
