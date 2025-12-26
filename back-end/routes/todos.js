@@ -16,7 +16,7 @@ router.post('/', auth, async (req, res) => {
       dueDate,
       priority,
       description,
-      user: req.user.id // Taken from the auth middleware token
+      user: req.user.id
     });
 
     const todo = await newTodo.save();
@@ -53,6 +53,15 @@ router.put('/:id', auth, async (req, res) => {
   if (description !== undefined) todoFields.description = description;
   if (completed !== undefined) todoFields.completed = completed;
   if (archived !== undefined) todoFields.archived = archived;
+
+  // ✅ ADD THIS SECTION - Handle completedAt timestamp
+  if (completed === true) {
+    todoFields.completedAt = new Date();
+  }
+  if (completed === false) {
+    todoFields.completedAt = null;
+  }
+  // ✅ END OF NEW CODE
 
   try {
     let todo = await Todo.findById(req.params.id);
