@@ -9,9 +9,10 @@ import { isTaskOverdue, getDaysOverdue } from "../utils/notificationUtils";
 export default function Upcoming() {
   const { todos } = useTodos();
 
-  // Filter: Only next 7 days, not archived, not completed
+  // Filter: Only next 7 days, NOT archived, NOT completed
   const upcomingTasks = todos
     .filter(todo => {
+      // Exclude archived, completed tasks, and tasks without due dates
       if (todo.archived || todo.completed || !todo.dueDate) return false;
       
       const dueDate = moment(todo.dueDate);
@@ -74,7 +75,7 @@ export default function Upcoming() {
             Upcoming Tasks
           </h1>
           <p className="text-gray-500 text-sm mt-1">
-            Next 7 days • {upcomingTasks.length} task{upcomingTasks.length !== 1 ? 's' : ''}
+            Next 7 days • {upcomingTasks.length} active task{upcomingTasks.length !== 1 ? 's' : ''}
           </p>
         </div>
 
@@ -107,7 +108,7 @@ export default function Upcoming() {
               All caught up! 🎉
             </h3>
             <p className="text-gray-500 dark:text-gray-400 text-sm">
-              No tasks due in the next 7 days.
+              No active tasks due in the next 7 days.
             </p>
           </motion.div>
         ) : (
