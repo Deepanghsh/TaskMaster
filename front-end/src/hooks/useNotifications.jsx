@@ -14,6 +14,18 @@ export const NotificationProvider = ({ children }) => {
   const { todos } = useTodos();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  
+  // Notification settings
+  const [settings, setSettings] = useState({
+    enabled: true,
+    browserNotifications: false,
+    soundEnabled: true,
+    dueTodayTime: '09:00',
+    oneHourBefore: true,
+    oneDayBefore: true,
+    overdueDaily: true,
+    overdueTime: '00:00'
+  });
 
   // Load read notifications from localStorage
   const loadReadNotifications = useCallback(() => {
@@ -60,6 +72,59 @@ export const NotificationProvider = ({ children }) => {
       console.error('❌ Error saving deleted notifications:', error);
     }
   }, []);
+
+  // Request browser notification permission
+  const requestNotificationPermission = async () => {
+    if (!('Notification' in window)) {
+      console.log('Browser does not support notifications');
+      return false;
+    }
+
+    if (Notification.permission === 'granted') {
+      return true;
+    }
+
+    if (Notification.permission !== 'denied') {
+      const permission = await Notification.requestPermission();
+      return permission === 'granted';
+    }
+
+    return false;
+  };
+
+  // Show browser notification
+  const showBrowserNotification = (title, body, icon = '/logo.png') => {
+    if (!settings.browserNotifications || Notification.permission !== 'granted') {
+      return;
+    }
+
+    const notification = new Notification(title, {
+      body,
+      icon,
+      badge: icon,
+      vibrate: [200, 100, 200],
+      tag: 'taskmaster-notification',
+      requireInteraction: false
+    });
+
+    notification.onclick = () => {
+      window.focus();
+      notification.close();
+    };
+
+    // Play sound
+    if (settings.soundEnabled) {
+      try {
+        const audio = new Audio('/notification-sound.mp3');
+        audio.volume = 0.3;
+        audio.play().catch(() => {
+          console.log('Could not play notification sound');
+        });
+      } catch (error) {
+        console.log('Audio not available');
+      }
+    }
+  };
 
   // Generate notifications from todos
   const generateNotifications = useCallback(() => {
@@ -172,43 +237,83 @@ export const NotificationProvider = ({ children }) => {
     generateNotifications();
   }, [generateNotifications]);
 
-  // Clean up localStorage when tasks are completed/deleted
+  // Clean up localStorage ONLY when tasks are actually deleted
   useEffect(() => {
     const cleanupStorage = () => {
       const readIds = loadReadNotifications();
       const deletedIds = loadDeletedNotifications();
-      const currentTaskIds = todos.map(t => t._id);
-      
-      // Keep only IDs for tasks that still exist
+      const allTaskIds = todos.map(t => t._id);
+
       const validReadIds = readIds.filter(id => {
         const taskId = id.split('-').slice(1).join('-');
-        return currentTaskIds.includes(taskId);
+        return allTaskIds.includes(taskId);
       });
       
       const validDeletedIds = deletedIds.filter(id => {
         const taskId = id.split('-').slice(1).join('-');
-        return currentTaskIds.includes(taskId);
+        return allTaskIds.includes(taskId);
       });
       
       if (validReadIds.length !== readIds.length) {
-        console.log('🧹 Cleaning up old read notifications');
+        console.log('🧹 Cleaning up read notifications for deleted tasks');
         saveReadNotifications(validReadIds);
       }
       
       if (validDeletedIds.length !== deletedIds.length) {
-        console.log('🧹 Cleaning up old deleted notifications');
+        console.log('🧹 Cleaning up deleted notifications for deleted tasks');
         saveDeletedNotifications(validDeletedIds);
       }
     };
 
-    cleanupStorage();
-  }, [todos, loadReadNotifications, loadDeletedNotifications, saveReadNotifications, saveDeletedNotifications]);
+    if (todos.length > 0) {
+      cleanupStorage();
+    }
+  }, [todos.length]);
+
+  // Load settings from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('notificationSettings');
+      if (stored) {
+        const parsedSettings = JSON.parse(stored);
+        setSettings(prev => ({ ...prev, ...parsedSettings }));
+        console.log('⚙️ Loaded notification settings:', parsedSettings);
+      }
+    } catch (error) {
+      console.error('Error loading notification settings:', error);
+    }
+  }, []);
+
+  // Update settings
+  const updateSettings = useCallback(async (newSettings) => {
+    const updatedSettings = { ...settings, ...newSettings };
+    setSettings(updatedSettings);
+    
+    // If enabling browser notifications, request permission
+    if (newSettings.browserNotifications && !settings.browserNotifications) {
+      const granted = await requestNotificationPermission();
+      if (!granted) {
+        updatedSettings.browserNotifications = false;
+        setSettings(updatedSettings);
+        return false;
+      }
+    }
+
+    // Save to localStorage
+    try {
+      localStorage.setItem('notificationSettings', JSON.stringify(updatedSettings));
+      console.log('⚙️ Saved notification settings:', updatedSettings);
+      return true;
+    } catch (error) {
+      console.error('Failed to save notification settings:', error);
+      return false;
+    }
+  }, [settings]);
 
   // Mark notification as read
   const markAsRead = useCallback((notificationId) => {
     console.log('📖 Marking as read:', notificationId);
     
-    // Update state
     setNotifications(prev => 
       prev.map(notif => 
         notif.id === notificationId ? { ...notif, read: true } : notif
@@ -216,7 +321,6 @@ export const NotificationProvider = ({ children }) => {
     );
     setUnreadCount(prev => Math.max(0, prev - 1));
 
-    // Save to localStorage
     const readIds = loadReadNotifications();
     if (!readIds.includes(notificationId)) {
       const newReadIds = [...readIds, notificationId];
@@ -228,35 +332,27 @@ export const NotificationProvider = ({ children }) => {
   const markAllAsRead = useCallback(() => {
     console.log('📖 Marking ALL as read');
     
-    // Update state
     setNotifications(prev => 
       prev.map(notif => ({ ...notif, read: true }))
     );
     setUnreadCount(0);
 
-    // Save all notification IDs to localStorage
     const allIds = notifications.map(n => n.id);
     saveReadNotifications(allIds);
   }, [notifications, saveReadNotifications]);
 
-  // Clear all notifications (marks them as deleted, NOT read)
+  // Clear all notifications
   const clearAll = useCallback(() => {
     console.log('🗑️ Clearing all notifications');
     
-    // Get current notification IDs
     const allIds = notifications.map(n => n.id);
-    
-    // Add to deleted list
     const deletedIds = loadDeletedNotifications();
     const newDeletedIds = [...new Set([...deletedIds, ...allIds])];
     saveDeletedNotifications(newDeletedIds);
     
-    // Clear state
     setNotifications([]);
     setUnreadCount(0);
     
-    // ⚠️ DO NOT clear readNotifications here!
-    // Just leave it as is - deleted notifications won't regenerate anyway
     console.log('🗑️ All notifications marked as deleted');
   }, [notifications, loadDeletedNotifications, saveDeletedNotifications]);
 
@@ -264,14 +360,12 @@ export const NotificationProvider = ({ children }) => {
   const deleteNotification = useCallback((notificationId) => {
     console.log('🗑️ Deleting notification:', notificationId);
     
-    // Add to deleted list
     const deletedIds = loadDeletedNotifications();
     if (!deletedIds.includes(notificationId)) {
       const newDeletedIds = [...deletedIds, notificationId];
       saveDeletedNotifications(newDeletedIds);
     }
     
-    // Update state
     setNotifications(prev => {
       const filtered = prev.filter(n => n.id !== notificationId);
       const unreadFiltered = filtered.filter(n => !n.read).length;
@@ -279,7 +373,6 @@ export const NotificationProvider = ({ children }) => {
       return filtered;
     });
 
-    // Remove from read list if present
     const readIds = loadReadNotifications();
     if (readIds.includes(notificationId)) {
       const updatedReadIds = readIds.filter(id => id !== notificationId);
@@ -292,11 +385,15 @@ export const NotificationProvider = ({ children }) => {
     <NotificationContext.Provider 
       value={{ 
         notifications, 
-        unreadCount, 
+        unreadCount,
+        settings,
         markAsRead, 
         markAllAsRead, 
         clearAll,
-        deleteNotification
+        deleteNotification,
+        updateSettings,
+        requestNotificationPermission,
+        showBrowserNotification
       }}
     >
       {children}
