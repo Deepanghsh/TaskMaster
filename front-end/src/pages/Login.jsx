@@ -196,9 +196,13 @@ export default function Login() {
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
                 Password
               </label>
-              <a href="#" className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium">
+              {/* ✅ ADDED FORGOT PASSWORD LINK */}
+              <Link 
+                to="/forgot-password" 
+                className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium transition-colors"
+              >
                 Forgot?
-              </a>
+              </Link>
             </div>
             <div className="relative group">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-indigo-600 dark:group-focus-within:text-indigo-400 transition-colors" />
