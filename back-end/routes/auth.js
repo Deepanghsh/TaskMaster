@@ -1,5 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import User from '../models/User.js';
 import OTP from '../models/OTP.js';
 import logger from '../config/logger.js';
@@ -477,8 +478,6 @@ router.delete('/me', async (req, res) => {
   }
 });
 
-// ✅ NEW ROUTES FOR NOTIFICATION SETTINGS
-
 router.get('/notification-settings', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '') || req.headers['x-auth-token'];
@@ -561,6 +560,176 @@ router.put('/notification-settings', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error'
+    });
+  }
+});
+
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide your email address'
+      });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      logger.warn(`Password reset requested for non-existent email: ${email}`);
+      return res.json({
+        success: true,
+        message: 'If an account exists with this email, you will receive a password reset code'
+      });
+    }
+
+    const resetToken = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    logger.debug(`Reset OTP generated for ${email}: ${resetToken} (expires in 10 minutes)`);
+    
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+    await user.save();
+
+    try {
+      await sendOTPEmail(email, user.name, resetToken);
+      
+      logger.info(`Password reset OTP sent to: ${email}`);
+      
+      res.json({
+        success: true,
+        message: 'Password reset code sent to your email'
+      });
+      
+    } catch (emailError) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save();
+      
+      logger.error(`Failed to send reset email to ${email}:`, emailError);
+      
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send reset email. Please try again later.'
+      });
+    }
+
+  } catch (error) {
+    logger.error(`Forgot password error: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Server error. Please try again later.'
+    });
+  }
+});
+
+router.post('/verify-reset-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and OTP code'
+      });
+    }
+
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(otp)
+      .digest('hex');
+
+    const user = await User.findOne({
+      email,
+      resetPasswordToken: hashedToken,
+      resetPasswordExpire: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      logger.warn(`Invalid or expired reset OTP for: ${email}`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset code'
+      });
+    }
+
+    logger.info(`Reset OTP verified for: ${email}`);
+
+    res.json({
+      success: true,
+      message: 'OTP verified successfully. You can now reset your password.'
+    });
+
+  } catch (error) {
+    logger.error(`Verify reset OTP error: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Server error. Please try again later.'
+    });
+  }
+});
+
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email, OTP, and new password'
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters long'
+      });
+    }
+
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(otp)
+      .digest('hex');
+
+    const user = await User.findOne({
+      email,
+      resetPasswordToken: hashedToken,
+      resetPasswordExpire: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      logger.warn(`Invalid or expired reset OTP for password reset: ${email}`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset code'
+      });
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    logger.info(`Password reset successful for: ${email}`);
+
+    res.json({
+      success: true,
+      message: 'Password reset successful. You can now login with your new password.'
+    });
+
+  } catch (error) {
+    logger.error(`Reset password error: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Server error. Please try again later.'
     });
   }
 });
