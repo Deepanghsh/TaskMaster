@@ -37,7 +37,7 @@ export default function TodoForm({ defaultPriority = "Low" }) {
     if (!dueDate) {
       newErrors.dueDate = "Due date is required.";
     } else if (moment(dueDate).isBefore(today)) {
-      newErrors.dueDate = "Due date cannot be in the past.";
+      newErrors.dueDate = "Date must be today or later."; // ✅ CHANGE 1: Better error message
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -89,11 +89,11 @@ export default function TodoForm({ defaultPriority = "Low" }) {
         <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <input 
           type="date" 
-          value={dueDate} 
-          min={moment().format("YYYY-MM-DD")} 
+          value={dueDate}
           onChange={(e) => setDueDate(e.target.value)} 
           className="w-full pl-10 p-3 rounded-xl border dark:bg-gray-800 dark:border-gray-700 dark:text-white" 
         />
+        {/* ✅ CHANGE 2: Removed min attribute so custom error shows */}
         {errors.dueDate && <p className="text-red-500 text-xs mt-1 pl-1">{errors.dueDate}</p>}
       </div>
 
