@@ -4,12 +4,16 @@ import { useAuth } from "./hooks/useAuth.jsx";
 import { NotificationProvider } from "./hooks/useNotifications.jsx";
 import MainLayout from "./layouts/MainLayout.jsx";
 
+// Auth Pages
 import Login from "./pages/Login.jsx";
 import SignUp from "./pages/SignUp.jsx";
+import ForgotPassword from "./pages/ForgotPassword.jsx"; // ✅ ADDED
 import OTPVerification from "./pages/OTPVerification.jsx";
+
+// Protected Pages
 import Home from "./pages/Home.jsx";
 import Upcoming from "./pages/Upcoming.jsx"; 
-import CompletedTasks from "./pages/CompletedTasks.jsx"; // ✅ ADDED
+import CompletedTasks from "./pages/CompletedTasks.jsx";
 import CalendarPage from "./pages/Calendar.jsx";
 import Categories from "./pages/Categories.jsx";
 import Analysis from "./pages/Analysis.jsx";
@@ -39,8 +43,8 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      {/* Wrap NotificationProvider inside BrowserRouter and only around protected routes */}
       <Routes>
+        {/* PUBLIC ROUTES */}
         <Route 
           path="/login" 
           element={user ? <Navigate to="/" replace /> : <Login />} 
@@ -49,12 +53,17 @@ export default function App() {
           path="/signup" 
           element={user ? <Navigate to="/" replace /> : <SignUp />} 
         />
+        {/* ✅ ADDED FORGOT PASSWORD ROUTE */}
+        <Route 
+          path="/forgot-password" 
+          element={user ? <Navigate to="/" replace /> : <ForgotPassword />} 
+        />
         <Route 
           path="/verify-otp" 
           element={user ? <Navigate to="/" replace /> : <OTPVerification />} 
         />
 
-        {/* Protected Routes with NotificationProvider */}
+        {/* PROTECTED ROUTES WITH NOTIFICATION PROVIDER */}
         <Route element={
           <ProtectedRoute>
             <NotificationProvider>
@@ -64,7 +73,7 @@ export default function App() {
         }>
           <Route path="/" element={<Home />} />
           <Route path="/upcoming" element={<Upcoming />} /> 
-          <Route path="/completed" element={<CompletedTasks />} /> {/* ✅ ADDED */}
+          <Route path="/completed" element={<CompletedTasks />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/analysis" element={<Analysis />} />
@@ -73,6 +82,7 @@ export default function App() {
           <Route path="/notification-settings" element={<NotificationSettings />} />
         </Route>
 
+        {/* 404 NOT FOUND */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
