@@ -74,9 +74,17 @@ export default function MainLayout() {
                              ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0 md:shadow-none'}
                              bg-white dark:bg-gray-800 border-r border-gray-100 dark:border-gray-700`}>
                 
+                {/* ✅ Logo Added Here */}
                 <div className="flex items-center justify-between h-16 mb-6">
-                    <Link to="/" className="text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
-                        TaskMaster
+                    <Link to="/" className="flex items-center gap-3">
+                        <img 
+                            src="src\Logo\TaskMaster.png"
+                            alt="TaskMaster Logo" 
+                            className="w-10 h-10 object-contain"
+                        />
+                        <span className="text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+                            TaskMaster
+                        </span>
                     </Link>
                     <button className="md:hidden p-2 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white" onClick={() => setIsSidebarOpen(false)}>
                         <X className="w-6 h-6" />
