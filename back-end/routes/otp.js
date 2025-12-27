@@ -24,6 +24,17 @@ function generateOTP(length = OTP_LENGTH) {
   return otp;
 }
 
+function getFormattedTimestamp() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
 router.post('/send', async (req, res) => {
   try {
     const { email, name, purpose = 'verification' } = req.body;
@@ -81,9 +92,8 @@ router.post('/send', async (req, res) => {
       });
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      logger.debug(`OTP generated for ${email}: ${otp} (expires in ${OTP_EXPIRY_MINUTES} minutes)`);
-    }
+    const timestamp = getFormattedTimestamp();
+    console.log(`\x1b[36m${timestamp} OTP generated for ${email}: ${otp} (expires in ${OTP_EXPIRY_MINUTES} minutes)\x1b[0m`);
 
     logger.info(`OTP sent to ${email}`);
 
@@ -276,9 +286,8 @@ router.post('/resend', async (req, res) => {
       });
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      logger.debug(`OTP resent for ${email}: ${otp}`);
-    }
+    const timestamp = getFormattedTimestamp();
+    console.log(`\x1b[36m${timestamp} OTP resent for ${email}: ${otp}\x1b[0m`);
 
     logger.info(`OTP resent to ${email}`);
 
