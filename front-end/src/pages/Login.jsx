@@ -5,8 +5,7 @@ import { Mail, Lock, Sparkles, ArrowRight, Eye, EyeOff, XCircle, Zap, ShieldChec
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { isValidEmail } from "../utils/validationUtils";
-
-const API_BASE_URL = 'http://localhost:5000/api';
+import api from "../services/api";
 
 export default function Login() {
   const { login } = useAuth();
@@ -14,21 +13,33 @@ export default function Login() {
   const navigate = useNavigate();
 
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [formData, setFormData] = useState({
+    email: "",
+    password: ""
+  });
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleChange = (e) => {
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
+    // Clear error when user starts typing
+    if (error) setError(null);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
 
-    if (!email.trim() || !password.trim()) {
+    // Validation
+    if (!formData.email.trim() || !formData.password.trim()) {
       setError("Please enter both email and password.");
       return;
     }
 
-    if (!isValidEmail(email)) {
+    if (!isValidEmail(formData.email)) {
       setError("Please enter a valid email address.");
       return;
     }
@@ -36,59 +47,47 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      // Step 1: Verify credentials with backend
-      const response = await fetch(`${API_BASE_URL}/auth/login-with-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+      // Single API call - backend handles verification AND OTP sending
+      const response = await api.post('/auth/login-with-otp', {
+        email: formData.email,
+        password: formData.password
       });
 
-      const result = await response.json();
-
-      if (!result.success) {
-        if (result.errorCode === "USER_NOT_FOUND") {
-          setError("This email is not registered. Please sign up.");
-        } else if (result.errorCode === "INVALID_PASSWORD") {
-          setError("Incorrect password. Please try again.");
-        } else {
-          setError(result.message || "Login failed.");
-        }
-        setIsLoading(false);
-        return;
+      if (response.data.success) {
+        // Navigate immediately to OTP page
+        navigate('/verify-otp', { 
+          state: { 
+            email: formData.email,
+            name: response.data.data?.name || 'User',
+            fromLogin: true 
+          },
+          replace: true // Prevent going back to login page
+        });
       }
-
-      // Step 2: Send OTP to user's email
-      const otpResponse = await fetch(`${API_BASE_URL}/otp/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email, 
-          name: result.data.name,
-          purpose: 'login'
-        })
-      });
-
-      const otpResult = await otpResponse.json();
-
-      if (!otpResult.success) {
-        setError(otpResult.message || "Failed to send verification code.");
-        setIsLoading(false);
-        return;
-      }
-
-      // Step 3: Navigate to OTP verification page
-      navigate('/verify-otp', {
-        state: { 
-          email, 
-          name: result.data.name,
-          isSignup: false 
-        }
-      });
 
     } catch (error) {
       console.error('Login error:', error);
-      setError("An error occurred during login. Please try again.");
-    } finally {
+      
+      // Handle specific errors
+      const status = error.response?.status;
+      const errorCode = error.response?.data?.errorCode;
+      const errorMessage = error.response?.data?.message;
+      
+      if (status === 429) {
+        // Rate limit error - extract wait time if available
+        const match = errorMessage?.match(/(\d+)\s*second/i);
+        const seconds = match ? match[1] : '60';
+        setError(`Too many attempts. Please wait ${seconds} seconds before trying again.`);
+      } else if (errorCode === "USER_NOT_FOUND") {
+        setError("This email is not registered. Please sign up first.");
+      } else if (errorCode === "INVALID_PASSWORD") {
+        setError("Incorrect password. Please try again.");
+      } else if (status === 401) {
+        setError("Invalid email or password.");
+      } else {
+        setError(errorMessage || "Login failed. Please try again.");
+      }
+      
       setIsLoading(false);
     }
   };
@@ -156,7 +155,7 @@ export default function Login() {
                 exit={{ opacity: 0, height: 0 }}
                 className="p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-xl flex gap-2 border border-red-300 dark:border-red-800"
               >
-                <XCircle className="w-5 h-5 flex-shrink-0" />
+                <XCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                 <span className="text-sm">{error}</span>
               </motion.div>
             )}
@@ -176,10 +175,12 @@ export default function Login() {
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-indigo-600 dark:group-focus-within:text-indigo-400 transition-colors" />
               <input
                 type="email"
+                name="email"
                 placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={formData.email}
+                onChange={handleChange}
                 disabled={isLoading}
+                autoComplete="email"
                 className="w-full pl-12 pr-4 py-3.5 rounded-xl border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
@@ -196,7 +197,6 @@ export default function Login() {
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
                 Password
               </label>
-              {/* ✅ ADDED FORGOT PASSWORD LINK */}
               <Link 
                 to="/forgot-password" 
                 className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium transition-colors"
@@ -208,10 +208,12 @@ export default function Login() {
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-indigo-600 dark:group-focus-within:text-indigo-400 transition-colors" />
               <input
                 type={showPassword ? "text" : "password"}
+                name="password"
                 placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={formData.password}
+                onChange={handleChange}
                 disabled={isLoading}
+                autoComplete="current-password"
                 className="w-full pl-12 pr-12 py-3.5 rounded-xl border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <button
@@ -219,6 +221,7 @@ export default function Login() {
                 onClick={() => setShowPassword(!showPassword)}
                 disabled={isLoading}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50"
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
@@ -242,13 +245,13 @@ export default function Login() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
             type="submit"
-            disabled={isLoading || !email.trim() || !password.trim()}
+            disabled={isLoading || !formData.email.trim() || !formData.password.trim()}
             className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-semibold flex justify-center items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none group"
           >
             {isLoading ? (
               <>
                 <Zap className="w-5 h-5 animate-pulse" />
-                <span>Sending verification code...</span>
+                <span>Verifying credentials...</span>
               </>
             ) : (
               <>
