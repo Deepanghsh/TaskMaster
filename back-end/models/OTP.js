@@ -12,7 +12,7 @@ const otpSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  expiryTime: {
+  expiresAt: {  // ✅ Changed from expiryTime to match auth.js
     type: Date,
     required: true
   },
@@ -31,7 +31,7 @@ const otpSchema = new mongoose.Schema({
 });
 
 // Create TTL index to automatically delete expired OTPs
-otpSchema.index({ expiryTime: 1 }, { expireAfterSeconds: 0 });
+otpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 const OTP = mongoose.model('OTP', otpSchema);
 
