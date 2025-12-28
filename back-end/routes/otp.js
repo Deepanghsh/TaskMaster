@@ -66,14 +66,14 @@ router.post('/send', async (req, res) => {
     }
 
     const otp = generateOTP();
-    const expiryTime = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
     await OTP.findOneAndUpdate(
       { email },
       {
         email,
         otp,
-        expiryTime,
+        expiresAt,  // ✅ Changed from expiryTime
         attempts: 0,
         createdAt: new Date(),
         metadata: { name, purpose }
@@ -144,7 +144,7 @@ router.post('/verify', async (req, res) => {
       });
     }
 
-    if (Date.now() > storedOTP.expiryTime.getTime()) {
+    if (Date.now() > storedOTP.expiresAt.getTime()) {  // ✅ Changed from expiryTime
       await OTP.deleteOne({ email });
       logger.warn(`Expired OTP verification attempt: ${email}`);
       return res.status(400).json({
@@ -253,7 +253,7 @@ router.post('/resend', async (req, res) => {
     }
 
     const otp = generateOTP();
-    const expiryTime = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);  // ✅ Changed from expiryTime
 
     const metadata = existingOTP?.metadata || { name };
 
@@ -262,7 +262,7 @@ router.post('/resend', async (req, res) => {
       {
         email,
         otp,
-        expiryTime,
+        expiresAt,  // ✅ Changed from expiryTime
         attempts: 0,
         createdAt: new Date(),
         metadata
@@ -327,8 +327,8 @@ router.get('/status/:email', async (req, res) => {
       exists: true,
       email: storedOTP.email,
       otp: storedOTP.otp,
-      expiresAt: storedOTP.expiryTime.toISOString(),
-      expiresIn: Math.max(0, Math.ceil((storedOTP.expiryTime.getTime() - Date.now()) / 1000)),
+      expiresAt: storedOTP.expiresAt.toISOString(),  // ✅ Changed from expiryTime
+      expiresIn: Math.max(0, Math.ceil((storedOTP.expiresAt.getTime() - Date.now()) / 1000)),  // ✅ Changed
       attempts: storedOTP.attempts,
       maxAttempts: MAX_ATTEMPTS,
       attemptsRemaining: MAX_ATTEMPTS - storedOTP.attempts,
@@ -346,10 +346,11 @@ router.get('/status/:email', async (req, res) => {
   }
 });
 
+// Cleanup expired OTPs every minute
 setInterval(async () => {
   try {
     const now = new Date();
-    const result = await OTP.deleteMany({ expiryTime: { $lt: now } });
+    const result = await OTP.deleteMany({ expiresAt: { $lt: now } });  // ✅ Changed from expiryTime
     if (result.deletedCount > 0) {
       logger.info(`Cleaned up ${result.deletedCount} expired OTP(s)`);
     }
