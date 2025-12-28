@@ -14,6 +14,29 @@ const generateToken = (id) => {
   });
 };
 
+// Helper function to format timestamp
+function getFormattedTimestamp() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+// Helper function to log OTP in console
+function logOTPToConsole(email, otp, expiresAt) {
+  const now = new Date();
+  const expiryTime = new Date(expiresAt);
+  const minutesUntilExpiry = Math.ceil((expiryTime - now) / 1000 / 60);
+  const timestamp = getFormattedTimestamp();
+  
+  console.log(`\x1b[33m⏰ ${timestamp}\x1b[0m \x1b[36m📧 OTP sent to: ${email}\x1b[0m`);
+  console.log(`\x1b[33m⏰ ${timestamp}\x1b[0m \x1b[32mOTP generated: ${otp}\x1b[0m \x1b[90m(Expires in ${minutesUntilExpiry} min)\x1b[0m`);
+}
+
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -232,11 +255,38 @@ router.post('/login-with-otp', async (req, res) => {
       });
     }
 
-    logger.info(`Credentials verified for OTP login: ${email}`);
+    // Generate OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Delete old OTPs
+    await OTP.deleteMany({ email: email.toLowerCase() });
+
+    // Save new OTP
+    await OTP.create({
+      email: email.toLowerCase(),
+      otp: otpCode,
+      expiresAt
+    });
+
+    // ✅ Log OTP to console with formatting
+    logOTPToConsole(email, otpCode, expiresAt);
+
+    // Send email
+    if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true') {
+      try {
+        await sendOTPEmail(email, user.name, otpCode);
+        // Removed duplicate log - already shown in logOTPToConsole
+      } catch (emailError) {
+        logger.error(`Failed to send OTP email to ${email}:`, emailError);
+      }
+    }
+
+    // Removed duplicate log - credentials verification is obvious from password match
     
     res.json({
       success: true,
-      message: 'Credentials verified. Please verify OTP sent to your email.',
+      message: 'OTP sent to your email. Please verify to complete login.',
       data: {
         email: user.email,
         name: user.name,
@@ -245,7 +295,7 @@ router.post('/login-with-otp', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error(`Login error: ${error.message}`);
+    logger.error(`Login with OTP error: ${error.message}`);
     res.status(500).json({
       success: false,
       message: 'Server error during login'
@@ -586,8 +636,10 @@ router.post('/forgot-password', async (req, res) => {
     }
 
     const resetToken = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     
-    logger.debug(`Reset OTP generated for ${email}: ${resetToken} (expires in 10 minutes)`);
+    // ✅ Log reset OTP to console
+    logOTPToConsole(email, resetToken, expiresAt);
     
     const hashedToken = crypto
       .createHash('sha256')
