@@ -33,8 +33,20 @@ const TodoList = ({ filter, search, categoryFilter, dueDateFilter }) => {
         .toLowerCase()
         .includes(search.toLowerCase());
 
-      const matchesCategory =
-        categoryFilter === "all" || todo.category === categoryFilter;
+      // ✅ FIXED: Category filter - handle both ID and name matching
+      let matchesCategory = categoryFilter === "all";
+      if (categoryFilter !== "all") {
+        // Check if todo.category matches by ID or by name (case-insensitive)
+        if (typeof todo.category === 'object' && todo.category !== null) {
+          // If category is an object (populated), check _id
+          matchesCategory = todo.category._id === categoryFilter;
+        } else if (typeof todo.category === 'string') {
+          // If category is a string, check both ID and name
+          matchesCategory = 
+            todo.category === categoryFilter || // Match by ID
+            todo.category.toLowerCase() === categoryFilter.toLowerCase(); // Match by name
+        }
+      }
 
       let matchesFilter = filter === "all";
       if (filter === "active") matchesFilter = !todo.completed;
@@ -147,7 +159,7 @@ const TodoList = ({ filter, search, categoryFilter, dueDateFilter }) => {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center gap-3"
+          className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center gap-3 shadow-sm"
         >
           <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
           <div>
@@ -169,11 +181,12 @@ const TodoList = ({ filter, search, categoryFilter, dueDateFilter }) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
             className="space-y-4"
           >
             {/* Date Header */}
             <div className="flex items-center gap-3">
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm ${
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm shadow-sm ${
                 dateKey === 'Overdue' 
                   ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
                   : dateKey === 'Today'
@@ -201,6 +214,7 @@ const TodoList = ({ filter, search, categoryFilter, dueDateFilter }) => {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
                     className="relative h-full"
                   >
                     {/* Overdue Badge - Only show for active tasks */}
@@ -226,14 +240,21 @@ const TodoList = ({ filter, search, categoryFilter, dueDateFilter }) => {
       </AnimatePresence>
 
       {filteredTodos.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-400 dark:text-gray-500 text-sm">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-16"
+        >
+          <div className="text-6xl mb-4">
+            {filter === "completed" ? "🎉" : "🚀"}
+          </div>
+          <p className="text-gray-400 dark:text-gray-500 text-lg font-medium">
             {filter === "completed" 
-              ? "No completed tasks yet. Complete some tasks to see them here! 🎉" 
-              : "No tasks found. Add one to get started! 🚀"
+              ? "No completed tasks yet. Complete some tasks to see them here!" 
+              : "No tasks found. Add one to get started!"
             }
           </p>
-        </div>
+        </motion.div>
       )}
     </div>
   );
@@ -252,14 +273,14 @@ export default function Home() {
   const overdueCount = todos.filter(t => isTaskOverdue(t) && !t.archived && !t.completed).length;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 p-4">
+    <div className="max-w-7xl mx-auto space-y-6 p-4 pb-8">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             Hello, {user?.name || "User"} 👋
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
             Let's get some work done today.
           </p>
         </div>
@@ -269,7 +290,8 @@ export default function Home() {
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="bg-red-500 text-white px-4 py-2 rounded-full shadow-lg"
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            className="bg-gradient-to-r from-red-500 to-red-600 text-white px-5 py-2.5 rounded-full shadow-lg"
           >
             <p className="text-xs font-bold">
               {overdueCount} Overdue
@@ -291,8 +313,9 @@ export default function Home() {
 
         {/* RIGHT SIDE: Quick Add (1/3 width) */}
         <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 sticky top-4">
-            <h3 className="text-lg font-bold text-indigo-600 dark:text-indigo-400 mb-4">
+          <div className="bg-gradient-to-br from-white to-indigo-50 dark:from-gray-800 dark:to-indigo-900/20 p-6 rounded-2xl shadow-lg border border-indigo-100 dark:border-indigo-900/50 sticky top-4">
+            <h3 className="text-lg font-bold text-indigo-600 dark:text-indigo-400 mb-4 flex items-center gap-2">
+              <span className="text-2xl">✨</span>
               Quick Add
             </h3>
             <TodoForm defaultPriority="Low" />
@@ -302,26 +325,28 @@ export default function Home() {
 
       {/* BOTTOM SECTION: TASKS */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            🎯 Your Tasks
-          </h2>
+        <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              🎯 Your Tasks
+            </h2>
 
-          <div className="flex-1 max-w-2xl">
-            <FilterBar
-              filter={filter}
-              setFilter={setFilter}
-              search={search}
-              setSearch={setSearch}
-              categoryFilter={categoryFilter}
-              setCategoryFilter={setCategoryFilter}
-              dueDateFilter={dueDateFilter}
-              setDueDateFilter={setDueDateFilter}
-            />
+            <div className="flex-1 lg:max-w-3xl">
+              <FilterBar
+                filter={filter}
+                setFilter={setFilter}
+                search={search}
+                setSearch={setSearch}
+                categoryFilter={categoryFilter}
+                setCategoryFilter={setCategoryFilter}
+                dueDateFilter={dueDateFilter}
+                setDueDateFilter={setDueDateFilter}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="p-6 bg-gray-50/50 dark:bg-gray-900/20">
+        <div className="p-6 bg-gray-50/50 dark:bg-gray-900/20 min-h-[400px]">
           <TodoList
             filter={filter}
             search={search}
