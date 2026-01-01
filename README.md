@@ -2,10 +2,6 @@
 
 A full-stack MERN task management application with secure authentication and modern UI.
 
-**Live Demo:** [taskmaster-sigma-orpin.vercel.app](https://taskmaster-sigma-orpin.vercel.app)  
-**API:** [taskmaster-backend-dzsl.onrender.com](https://taskmaster-backend-dzsl.onrender.com)  
-**GitHub:** [github.com/Deepanghsh/TaskMaster](https://github.com/Deepanghsh/TaskMaster)
-
 ## ✨ Features
 
 - **Task Management** - Dashboard, calendar view, priority levels, and color-coded categories
